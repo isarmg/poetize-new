@@ -30,13 +30,13 @@ jobs:
       - name: Build blog and admin UI
         working-directory: poetize-ui
         run: |
-          npm ci
+          npm ci --include=dev
           npm run build
 
       - name: Build IM UI
         working-directory: poetize-im-ui
         run: |
-          npm ci
+          npm ci --include=dev
           npm run build
 
       - name: Set up Java
