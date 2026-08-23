@@ -1,0 +1,229 @@
+import constant from "./constant";
+import CryptoJS from 'crypto-js';
+import DOMPurify from 'dompurify';
+import store from '../store';
+import {ElMessage} from "element-plus";
+
+const CONTENT_SANITIZE_OPTIONS = {
+  ALLOWED_TAGS: ['br', 'div', 'img'],
+  ALLOWED_ATTR: ['loading', 'style', 'src', 'title']
+};
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function isAllowedImageUrl(value) {
+  const url = String(value).replace(/&amp;/g, '&').trim();
+  if (!url) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+export default {
+  /**
+   * 判断设备
+   */
+  mobile() {
+    return /(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i
+      .test(navigator.userAgent);
+  },
+
+  /**
+   * 判断是否为空
+   */
+  isEmpty(value) {
+    if (typeof value === "undefined" || value === null) {
+      return true;
+    }
+    if (typeof value === "string") {
+      return value.trim() === "";
+    }
+    if (Array.isArray(value)) {
+      return value.length === 0;
+    }
+    if (typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+      return Object.keys(value).length === 0;
+    }
+    return false;
+  },
+
+  /**
+   * 加密
+   */
+  encrypt(plaintText) {
+    let options = {
+      mode: CryptoJS.mode.ECB,
+      padding: CryptoJS.pad.Pkcs7
+    };
+    let key = CryptoJS.enc.Utf8.parse(constant.cryptojs_key);
+    let encryptedData = CryptoJS.AES.encrypt(plaintText, key, options);
+    return encryptedData.toString().replace(/\//g, "_").replace(/\+/g, "-");
+  },
+
+  /**
+   * 解密
+   */
+  decrypt(encryptedBase64Str) {
+    let val = encryptedBase64Str.replace(/-/g, '+').replace(/_/g, '/');
+    let options = {
+      mode: CryptoJS.mode.ECB,
+      padding: CryptoJS.pad.Pkcs7
+    };
+    let key = CryptoJS.enc.Utf8.parse(constant.cryptojs_key);
+    let decryptedData = CryptoJS.AES.decrypt(val, key, options);
+    return CryptoJS.enc.Utf8.stringify(decryptedData);
+  },
+
+  /**
+   * 表情包转换
+   */
+  faceReg(content) {
+    content = content.replace(/\[[^[\]]+\]/g, (word) => {
+      let index = constant.emojiList.indexOf(word.replace("[", "").replace("]", ""));
+      if (index > -1) {
+        const prefix = store.state.sysConfig['webStaticResourcePrefix'];
+        if (typeof prefix !== 'string' || !prefix) {
+          return word;
+        }
+        let url = prefix + "emoji/q" + (index + 1) + ".gif";
+        if (!isAllowedImageUrl(url)) {
+          return word;
+        }
+        return '<img loading="lazy" style="vertical-align: middle;width: 32px;height: 32px" src="' + url + '" title="' + word + '"/>';
+      } else {
+        return word;
+      }
+    });
+    return content;
+  },
+
+  /**
+   * 图片转换
+   */
+  pictureReg(content) {
+    content = content.replace(/\[[^[\]]+\]/g, (word) => {
+      const value = word.slice(1, -1);
+      const index = value.indexOf(",");
+      if (index > -1) {
+        const title = value.slice(0, index);
+        const url = value.slice(index + 1);
+        if (!isAllowedImageUrl(url)) {
+          return word;
+        }
+        return '<img loading="lazy" style="border-radius: 5px;width: 100%;max-width: 250px" src="' + url + '" title="' + title + '"/>';
+      } else {
+        return word;
+      }
+    });
+    return content;
+  },
+
+  /**
+   * 将用户内容转换为受限的消息 HTML。原始 HTML 会先转义，最终结果再按白名单清洗。
+   */
+  formatContent(content) {
+    let result = escapeHtml(content ?? '');
+    result = result.replace(/\n{2,}/g, '<div style="height: 12px"></div>');
+    result = result.replace(/\n/g, '<br>');
+    result = this.faceReg(result);
+    result = this.pictureReg(result);
+    return DOMPurify.sanitize(result, CONTENT_SANITIZE_OPTIONS);
+  },
+
+  /**
+   * 字符串转换为时间戳
+   */
+  getDateTimeStamp(dateStr) {
+    return Date.parse(dateStr.replace(/-/gi, "/"));
+  },
+
+  getDateDiff(dateStr) {
+    let publishTime = Date.parse(dateStr.replace(/-/gi, "/")) / 1000,
+      d_seconds,
+      d_minutes,
+      d_hours,
+      d_days,
+      timeNow = Math.floor(new Date().getTime() / 1000),
+      d,
+      date = new Date(publishTime * 1000),
+      Y = date.getFullYear(),
+      M = date.getMonth() + 1,
+      D = date.getDate(),
+      H = date.getHours(),
+      m = date.getMinutes(),
+      s = date.getSeconds();
+    //小于10的在前面补0
+    if (M < 10) {
+      M = '0' + M;
+    }
+    if (D < 10) {
+      D = '0' + D;
+    }
+    if (H < 10) {
+      H = '0' + H;
+    }
+    if (m < 10) {
+      m = '0' + m;
+    }
+    if (s < 10) {
+      s = '0' + s;
+    }
+    d = timeNow - publishTime;
+    d_days = Math.floor(d / 86400);
+    d_hours = Math.floor(d / 3600);
+    d_minutes = Math.floor(d / 60);
+    d_seconds = Math.floor(d);
+    if (d_days > 0 && d_days < 3) {
+      return d_days + '天前';
+    } else if (d_days <= 0 && d_hours > 0) {
+      return d_hours + '小时前';
+    } else if (d_hours <= 0 && d_minutes > 0) {
+      return d_minutes + '分钟前';
+    } else if (d_seconds < 60) {
+      if (d_seconds <= 0) {
+        return '刚刚发表';
+      } else {
+        return d_seconds + '秒前';
+      }
+    } else if (d_days >= 3 && d_days < 30) {
+      return M + '-' + D + ' ' + H + ':' + m;
+    } else if (d_days >= 30) {
+      return Y + '-' + M + '-' + D + ' ' + H + ':' + m;
+    }
+  },
+
+  /**
+   * 保存资源
+   */
+  saveResource(that, type, path, size, mimeType, originalName, storeType) {
+    let resource = {
+      type: type,
+      path: path,
+      size: size,
+      mimeType: mimeType,
+      storeType: storeType,
+      originalName: originalName
+    };
+
+    that.$http.post(that.$constant.baseURL + "/resource/saveResource", resource)
+      .catch((error) => {
+        ElMessage({
+          message: error.message,
+          type: 'error'
+        });
+      });
+  }
+}
