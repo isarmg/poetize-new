@@ -159,12 +159,7 @@
         this.getArticles();
       },
       getArticles() {
-        let url = "";
-        if (this.isBoss) {
-          url = "/admin/article/boss/list";
-        } else {
-          url = "/admin/article/user/list";
-        }
+        const url = this.isBoss ? "/admin/article/boss/list" : "/admin/article/user/list";
         this.$http.post(this.$constant.baseURL + url, this.pagination, true)
           .then((res) => {
             if (!this.$common.isEmpty(res.data)) {

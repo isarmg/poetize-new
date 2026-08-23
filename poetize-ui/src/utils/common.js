@@ -80,7 +80,7 @@ export default {
    * 判断是否为空
    */
   isEmpty(value) {
-    if (typeof value === "undefined" || value === null || (typeof value === "string" && value.trim() === "") || (Array.prototype.isPrototypeOf(value) && value.length === 0) || (Object.prototype.isPrototypeOf(value) && Object.keys(value).length === 0)) {
+    if (typeof value === "undefined" || value === null || (typeof value === "string" && value.trim() === "") || (Array.isArray(value) && value.length === 0) || (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0)) {
       return true;
     } else {
       return false;
@@ -104,7 +104,7 @@ export default {
    * 解密
    */
   decrypt(encryptedBase64Str) {
-    let val = encryptedBase64Str.replace(/\-/g, '+').replace(/_/g, '/');
+    let val = encryptedBase64Str.replace(/-/g, '+').replace(/_/g, '/');
     let options = {
       mode: CryptoJS.mode.ECB,
       padding: CryptoJS.pad.Pkcs7
@@ -121,7 +121,7 @@ export default {
     if (typeof content !== "string") {
       return "";
     }
-    content = content.replace(/\[[^\[^\]]+\]/g, (word) => {
+    content = content.replace(/\[[^[\]]+\]/g, (word) => {
       let index = constant.emojiList.indexOf(word.replace("[", "").replace("]", ""));
       if (index > -1) {
         let url = (store.state.sysConfig['webStaticResourcePrefix'] || "") + "emoji/q" + (index + 1) + ".gif";
@@ -143,7 +143,7 @@ export default {
     if (typeof content !== "string") {
       return "";
     }
-    content = content.replace(/\[[^\[^\]]+\]/g, (word) => {
+    content = content.replace(/\[[^[\]]+\]/g, (word) => {
       const value = word.slice(1, -1);
       let index = value.indexOf(",");
       if (index > -1) {
@@ -233,8 +233,7 @@ export default {
       M = date.getMonth() + 1,
       D = date.getDate(),
       H = date.getHours(),
-      m = date.getMinutes(),
-      s = date.getSeconds();
+      m = date.getMinutes();
     //小于10的在前面补0
     if (M < 10) {
       M = '0' + M;
@@ -247,9 +246,6 @@ export default {
     }
     if (m < 10) {
       m = '0' + m;
-    }
-    if (s < 10) {
-      s = '0' + s;
     }
     d = timeNow - publishTime;
     d_days = Math.floor(d / 86400);
@@ -271,28 +267,6 @@ export default {
     } else if (d_days >= 3) {
       return Y + '-' + M + '-' + D + ' ' + H + ':' + m;
     }
-  },
-
-  /**
-   * 保存资源
-   */
-  saveResource(that, type, path, size, mimeType, originalName, storeType, isAdmin = false) {
-    let resource = {
-      type: type,
-      path: path,
-      size: size,
-      mimeType: mimeType,
-      storeType: storeType,
-      originalName: originalName
-    };
-
-    that.$http.post(that.$constant.baseURL + "/resource/saveResource", resource, isAdmin)
-      .catch((error) => {
-        that.$message({
-          message: error.message,
-          type: "error"
-        });
-      });
   },
 
   /**

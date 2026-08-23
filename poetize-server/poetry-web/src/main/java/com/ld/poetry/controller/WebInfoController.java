@@ -12,7 +12,6 @@ import com.ld.poetry.utils.*;
 import com.ld.poetry.utils.cache.PoetryCache;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,9 +32,6 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/webInfo")
 public class WebInfoController {
-
-    @Value("${store.type}")
-    private String defaultType;
 
     @Autowired
     private WebInfoService webInfoService;
@@ -77,7 +73,6 @@ public class WebInfoController {
         if (updated == null) {
             return PoetryResult.fail("网站信息更新后读取失败！");
         }
-        updated.setDefaultStoreType(defaultType);
         PoetryCache.put(CommonConst.WEB_INFO, updated);
         return PoetryResult.success();
     }

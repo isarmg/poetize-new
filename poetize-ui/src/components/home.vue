@@ -378,10 +378,6 @@
         } else {
           const url = new URL(this.$constant.imBaseURL, window.location.href);
           url.searchParams.set("userToken", this.$common.encrypt(rawToken));
-          const defaultStoreType = localStorage.getItem("defaultStoreType");
-          if (defaultStoreType) {
-            url.searchParams.set("defaultStoreType", defaultStoreType);
-          }
           window.open(url.toString(), "_blank", "noopener,noreferrer");
         }
       },
@@ -409,7 +405,6 @@
           .then((res) => {
             if (!this.$common.isEmpty(res.data)) {
               this.$store.commit("loadWebInfo", res.data);
-              localStorage.setItem("defaultStoreType", res.data.defaultStoreType);
             }
           })
           .catch((error) => {

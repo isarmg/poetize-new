@@ -2,7 +2,6 @@ import constant from "./constant";
 import CryptoJS from 'crypto-js';
 import DOMPurify from 'dompurify';
 import store from '../store';
-import {ElMessage} from "element-plus";
 
 const CONTENT_SANITIZE_OPTIONS = {
   ALLOWED_TAGS: ['br', 'div', 'img'],
@@ -163,8 +162,7 @@ export default {
       M = date.getMonth() + 1,
       D = date.getDate(),
       H = date.getHours(),
-      m = date.getMinutes(),
-      s = date.getSeconds();
+      m = date.getMinutes();
     //小于10的在前面补0
     if (M < 10) {
       M = '0' + M;
@@ -177,9 +175,6 @@ export default {
     }
     if (m < 10) {
       m = '0' + m;
-    }
-    if (s < 10) {
-      s = '0' + s;
     }
     d = timeNow - publishTime;
     d_days = Math.floor(d / 86400);
@@ -203,27 +198,5 @@ export default {
     } else if (d_days >= 30) {
       return Y + '-' + M + '-' + D + ' ' + H + ':' + m;
     }
-  },
-
-  /**
-   * 保存资源
-   */
-  saveResource(that, type, path, size, mimeType, originalName, storeType) {
-    let resource = {
-      type: type,
-      path: path,
-      size: size,
-      mimeType: mimeType,
-      storeType: storeType,
-      originalName: originalName
-    };
-
-    that.$http.post(that.$constant.baseURL + "/resource/saveResource", resource)
-      .catch((error) => {
-        ElMessage({
-          message: error.message,
-          type: 'error'
-        });
-      });
   }
 }

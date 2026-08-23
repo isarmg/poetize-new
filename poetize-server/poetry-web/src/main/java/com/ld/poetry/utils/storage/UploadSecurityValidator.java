@@ -77,7 +77,7 @@ public final class UploadSecurityValidator {
         if (file == null || file.isEmpty()) {
             throw new PoetryRuntimeException("上传文件不能为空！");
         }
-        validateTypeAndPath(type, relativePath, true);
+        validateTypeAndPath(type, relativePath);
         long sizeLimit = sizeLimit(type);
         if (file.getSize() > sizeLimit) {
             throw new PoetryRuntimeException("上传文件超过该资源类型的大小限制！");
@@ -87,58 +87,17 @@ public final class UploadSecurityValidator {
         validateSignature(type, extension, file);
     }
 
-    public static void validateStoredResource(String type, String path, String mimeType, long size) {
-        validateTypeAndPath(type, path, false);
-        if (size <= 0 || size > sizeLimit(type)) {
-            throw new PoetryRuntimeException("资源大小不合法或超过该类型限制！");
-        }
-        validateMime(type, extension(path), mimeType);
-    }
-
-    public static void validateQiniuKey(String key) {
-        typeForQiniuKey(key);
-    }
-
-    public static long sizeLimitForQiniuKey(String key) {
-        return sizeLimit(typeForQiniuKey(key));
-    }
-
-    private static String typeForQiniuKey(String key) {
-        if (!StringUtils.hasText(key) || key.length() > 256 || key.contains("\\")
-                || key.startsWith("/") || key.endsWith("/") || key.contains("//")
-                || key.contains("?") || key.contains("#") || key.contains("%")
-                || key.chars().anyMatch(Character::isISOControl)) {
-            throw new PoetryRuntimeException("文件键不合法！");
-        }
-        for (String segment : key.split("/", -1)) {
-            if (!StringUtils.hasText(segment) || ".".equals(segment) || "..".equals(segment)
-                    || segment.length() > 128) {
-                throw new PoetryRuntimeException("文件键不合法！");
-            }
-        }
-        String type = ALL_TYPES.stream()
-                .filter(candidate -> key.startsWith(candidate + "/"))
-                .findFirst()
-                .orElseThrow(() -> new PoetryRuntimeException("文件键未包含受支持的资源类型！"));
-        validateTypeAndPath(type, key, true);
-        return type;
-    }
-
     public static boolean isAssetsType(String type) {
         return CommonConst.PATH_TYPE_ASSETS.equals(type);
     }
 
-    public static boolean isAssetsKey(String key) {
-        return StringUtils.hasText(key) && key.startsWith(CommonConst.PATH_TYPE_ASSETS + "/");
-    }
-
-    private static void validateTypeAndPath(String type, String path, boolean requireTypePrefix) {
+    private static void validateTypeAndPath(String type, String path) {
         if (!StringUtils.hasText(type) || !ALL_TYPES.contains(type) || !StringUtils.hasText(path)
                 || path.length() > 256 || path.contains("?") || path.contains("#")
                 || path.chars().anyMatch(Character::isISOControl)) {
             throw new PoetryRuntimeException("资源类型或文件路径不合法！");
         }
-        if (requireTypePrefix && !path.startsWith(type + "/")) {
+        if (!path.startsWith(type + "/")) {
             throw new PoetryRuntimeException("文件路径与资源类型不匹配！");
         }
         String extension = extension(path);

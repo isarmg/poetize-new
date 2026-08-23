@@ -18,7 +18,7 @@ ps: 虽然我知道，大部分人都是来了直接下载源代码后就潇洒�
 ## 技术栈
 前端技术：Vue 3.5.41、Vue Router 5.2.0、Vuex 4.1.0、Vite 8.2.2、Element Plus 2.14.5、Naive UI 2.45.2
 
-后端技术：Java 25 LTS、Spring Boot 4.1.1、MySQL、MyBatis-Plus 3.5.17、t-io、qiniu-java-sdk、Spring Mail
+后端技术：Java 25 LTS、Spring Boot 4.1.1、MySQL、MyBatis-Plus 3.5.17、t-io、Spring Mail
 
 开发环境：Node.js 24.19 LTS、Maven 3.9+、JDK 25
 
@@ -45,7 +45,6 @@ Release 压缩包需要目标机安装 Java 25、MySQL 和 Nginx。压缩包内�
 - 聊天室前端：https://gitee.com/littledokey/poetize-im-vue3.git
 - 后端：https://gitee.com/littledokey/poetize-server.git
 - 博客前端、聊天室前端、后端汇总版（上述三个仓库放在一个仓库里，代码无差别）：https://gitee.com/littledokey/poetize
-- 七牛云登录/注册地址（文件服务器/CDN）：https://s.qiniu.com/Mz6Z32
 - 网站介绍与更新记录：https://poetize.cn/article/20
 - 部署文档和静态资源：https://poetize.cn/article/26
 
@@ -60,7 +59,7 @@ Release 压缩包需要目标机安装 Java 25、MySQL 和 Nginx。压缩包内�
 
 启动网站需要安装Nginx、Java、MySQL，然后打包前后端项目并部署，详细部署流程请见[部署文档和静态资源：https://poetize.cn/article/26](https://poetize.cn/article/26)。
 
-文件服务可以使用七牛云，也可以使用服务器。默认使用服务器。
+文件由后端保存到服务器本地目录，并通过 Nginx 提供访问。
 
 IM 聊天室系统是非必须的。如果部署，则需要依赖博客，然后从博客的“联系我”进入，因为登录模块在博客。
 

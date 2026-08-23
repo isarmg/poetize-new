@@ -89,21 +89,9 @@
                destroy-on-close
                center>
       <div>
-        <div style="display: flex;margin-bottom: 10px">
-          <div style="line-height: 40px">存储平台：</div>
-          <el-select v-model="storeType" placeholder="存储平台" style="width: 120px">
-            <el-option
-              v-for="(item, i) in storeTypes"
-              :key="i"
-              :label="item.label"
-              :value="item.value">
-            </el-option>
-          </el-select>
-        </div>
         <uploadPicture :isAdmin="true" :prefix="pagination.resourceType" @addPicture="addFile"
-                       :storeType="storeType"
                        :listType="'text'" :accept="'image/*, video/*, audio/*'"
-                       :maxSize="100" :maxNumber="10"></uploadPicture>
+                       :maxSize="10" :maxNumber="10"></uploadPicture>
       </div>
     </el-dialog>
   </div>
@@ -126,12 +114,7 @@
           resourceType: ""
         },
         resources: [],
-        resourceDialog: false,
-        storeTypes: [
-          {label: "服务器", value: "local"},
-          {label: "七牛云", value: "qiniu"}
-        ],
-        storeType: localStorage.getItem("defaultStoreType")
+        resourceDialog: false
       }
     },
 

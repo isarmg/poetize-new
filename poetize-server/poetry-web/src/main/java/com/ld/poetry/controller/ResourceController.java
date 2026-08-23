@@ -9,11 +9,9 @@ import com.ld.poetry.entity.Resource;
 import com.ld.poetry.enums.PoetryEnum;
 import com.ld.poetry.handle.PoetryRuntimeException;
 import com.ld.poetry.service.ResourceService;
-import com.ld.poetry.utils.storage.StoreService;
-import com.ld.poetry.utils.storage.QiniuUtil;
+import com.ld.poetry.utils.storage.LocalUtil;
 import com.ld.poetry.utils.storage.UploadSecurityValidator;
 import com.ld.poetry.utils.*;
-import com.ld.poetry.utils.storage.FileStorageService;
 import com.ld.poetry.vo.BaseRequestVO;
 import com.ld.poetry.vo.FileVO;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +22,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -44,62 +41,7 @@ public class ResourceController {
     private ResourceService resourceService;
 
     @Autowired
-    private FileStorageService fileStorageService;
-
-    /**
-     * 保存
-     */
-    @PostMapping("/saveResource")
-    @LoginCheck
-    public PoetryResult saveResource(@RequestBody Resource resource) {
-        if (resource == null || !StringUtils.hasText(resource.getType()) || !StringUtils.hasText(resource.getPath())) {
-            return PoetryResult.fail("资源类型和资源路径不能为空！");
-        }
-        StoreService storeService = fileStorageService.getFileStorageByStoreType(resource.getStoreType());
-        if (!(storeService instanceof QiniuUtil qiniuUtil)) {
-            return PoetryResult.fail("本地资源必须通过服务端上传接口登记！");
-        }
-        String key = qiniuUtil.validateAndExtractKey(resource.getPath());
-        if (!key.startsWith(resource.getType() + "/")) {
-            return PoetryResult.fail("资源路径与资源类型不匹配！");
-        }
-        if (UploadSecurityValidator.isAssetsType(resource.getType())
-                && !PoetryUtil.getAdminUser().getId().equals(PoetryUtil.getUserId())) {
-            return PoetryResult.fail("公共静态资源仅允许站长保存！");
-        }
-        Map<String, String> fileInfo = qiniuUtil.getFileInfo(Collections.singletonList(key)).get(key);
-        if (fileInfo == null) {
-            return PoetryResult.fail("七牛云资源不存在或暂时无法验证！");
-        }
-        String actualMimeType = fileInfo.get("mimeType");
-        long actualSize;
-        try {
-            actualSize = Long.parseLong(fileInfo.get("size"));
-        } catch (NumberFormatException e) {
-            return PoetryResult.fail("七牛云资源大小不合法！");
-        }
-        UploadSecurityValidator.validateStoredResource(
-                resource.getType(), resource.getPath(), actualMimeType, actualSize);
-        Resource re = new Resource();
-        re.setPath(resource.getPath());
-        re.setType(resource.getType());
-        try {
-            re.setSize(Math.toIntExact(actualSize));
-        } catch (ArithmeticException e) {
-            return PoetryResult.fail("七牛云资源大小不合法！");
-        }
-        if (StringUtils.hasText(resource.getOriginalName())) {
-            String originalName = StringUtil.removeHtml(resource.getOriginalName().trim());
-            re.setOriginalName(originalName.substring(0, Math.min(originalName.length(), 128)));
-        }
-        re.setMimeType(actualMimeType);
-        re.setStoreType(storeService.getStoreName());
-        re.setUserId(PoetryUtil.getUserId());
-        if (!resourceService.save(re)) {
-            return PoetryResult.fail("资源信息保存失败！");
-        }
-        return PoetryResult.success();
-    }
+    private LocalUtil localUtil;
 
     /**
      * 上传文件
@@ -118,9 +60,7 @@ public class ResourceController {
         }
 
         fileVO.setFile(file);
-        StoreService storeService = fileStorageService.getFileStorage(fileVO.getStoreType());
-        fileVO.setStoreType(storeService.getStoreName());
-        FileVO result = storeService.saveFile(fileVO);
+        FileVO result = localUtil.saveFile(fileVO);
 
         try {
             Resource re = new Resource();
@@ -128,7 +68,7 @@ public class ResourceController {
             re.setType(fileVO.getType());
             re.setSize(Math.toIntExact(file.getSize()));
             re.setMimeType(file.getContentType());
-            re.setStoreType(fileVO.getStoreType());
+            re.setStoreType(CommonConst.STORE_TYPE_LOCAL);
             String originalName = StringUtils.hasText(fileVO.getOriginalName())
                     ? fileVO.getOriginalName() : file.getOriginalFilename();
             if (StringUtils.hasText(originalName)) {
@@ -141,7 +81,7 @@ public class ResourceController {
             }
         } catch (RuntimeException e) {
             try {
-                storeService.deleteFile(Collections.singletonList(result.getVisitPath()));
+                localUtil.deleteFile(Collections.singletonList(result.getVisitPath()));
             } catch (RuntimeException cleanupException) {
                 log.error("上传资源记录保存失败，且补偿删除文件失败：{}", result.getVisitPath(), cleanupException);
             }
@@ -163,9 +103,11 @@ public class ResourceController {
         if (resource == null) {
             return PoetryResult.fail("文件不存在：" + path);
         }
+        if (!CommonConst.STORE_TYPE_LOCAL.equals(resource.getStoreType())) {
+            return PoetryResult.fail("仅支持删除服务器本地资源！");
+        }
 
-        StoreService storeService = fileStorageService.getFileStorageByStoreType(resource.getStoreType());
-        storeService.deleteFile(Collections.singletonList(path));
+        localUtil.deleteFile(Collections.singletonList(path));
         if (!resourceService.lambdaUpdate().eq(Resource::getPath, path).remove()) {
             return PoetryResult.fail("文件已删除，但资源记录清理失败，请重试！");
         }

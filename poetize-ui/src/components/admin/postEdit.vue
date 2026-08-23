@@ -207,26 +207,11 @@
         }
         let key = "articlePicture" + "/" + this.$store.state.currentAdmin.username.replace(/[^a-zA-Z]/g, '') + this.$store.state.currentAdmin.id + new Date().getTime() + Math.floor(Math.random() * 1000) + suffix;
 
-        let storeType = "local";
-        try {
-          if (localStorage.getItem("defaultStoreType") === "qiniu") {
-            storeType = "qiniu";
-          }
-        } catch {
-          // 存储不可用时使用本地上传。
-        }
-
         let fd = new FormData();
         fd.append("file", file);
         fd.append("originalName", file.name);
-        fd.append("key", key);
         fd.append("relativePath", key);
         fd.append("type", "articlePicture");
-        fd.append("storeType", storeType);
-
-        if (storeType === "qiniu") {
-          return this.saveQiniu(fd);
-        }
         return this.saveLocal(fd);
       },
       saveLocal(fd) {
@@ -236,26 +221,6 @@
               return res.data;
             }
             throw new Error("图片上传失败");
-          });
-      },
-      saveQiniu(fd) {
-        return this.$http.get(this.$constant.baseURL + "/qiniu/getUpToken", {key: fd.get("key")}, true)
-          .then((res) => {
-            if (!this.$common.isEmpty(res.data)) {
-              fd.append("token", res.data);
-
-              return this.$http.uploadQiniu(this.$store.state.sysConfig.qiniuUrl, fd)
-                .then((res) => {
-                  if (!this.$common.isEmpty(res.key)) {
-                    let url = this.$store.state.sysConfig['qiniu.downloadUrl'] + res.key;
-                    let file = fd.get("file");
-                    this.$common.saveResource(this, "articlePicture", url, file.size, file.type, file.name, "qiniu", true);
-                    return url;
-                  }
-                  throw new Error("图片上传失败");
-                });
-            }
-            throw new Error("获取上传凭证失败");
           });
       },
       addArticleCover(res) {

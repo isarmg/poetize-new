@@ -274,20 +274,11 @@
         let obj = new Blob([u8arr], {type: mine});
         let key = "graffiti" + "/" + this.$store.state.currentUser.username.replace(/[^a-zA-Z]/g, '') + this.$store.state.currentUser.id + new Date().getTime() + Math.floor(Math.random() * 1000) + ".png";
 
-        let storeType = localStorage.getItem("defaultStoreType");
-
         let fd = new FormData();
         fd.append("file", obj);
-        fd.append("key", key);
         fd.append("relativePath", key);
         fd.append("type", "graffiti");
-        fd.append("storeType", storeType);
-
-        if (storeType === "local") {
-          this.saveLocal(fd);
-        } else if (storeType === "qiniu") {
-          this.saveQiniu(fd);
-        }
+        this.saveLocal(fd);
       },
       saveLocal(fd) {
         this.$http.upload(this.$constant.baseURL + "/resource/upload", fd)
@@ -297,38 +288,6 @@
               let url = res.data;
               let img = "[你画我猜," + url + "]";
               this.$emit("addGraffitiComment", img);
-            }
-          })
-          .catch((error) => {
-            this.$message({
-              message: error.message,
-              type: "error"
-            });
-          });
-      },
-      saveQiniu(fd) {
-        this.$http.get(this.$constant.baseURL + "/qiniu/getUpToken", {key: fd.get("key")})
-          .then((res) => {
-            if (!this.$common.isEmpty(res.data)) {
-              fd.append("token", res.data);
-
-              this.$http.uploadQiniu(this.$store.state.sysConfig.qiniuUrl, fd)
-                .then((res) => {
-                  if (!this.$common.isEmpty(res.key)) {
-                    this.clearContext();
-                    let url = this.$store.state.sysConfig['qiniu.downloadUrl'] + res.key;
-                    let file = fd.get("file");
-                    this.$common.saveResource(this, "graffiti", url, file.size, file.type, null, "qiniu");
-                    let img = "[你画我猜," + url + "]";
-                    this.$emit("addGraffitiComment", img);
-                  }
-                })
-                .catch((error) => {
-                  this.$message({
-                    message: error.message,
-                    type: "error"
-                  });
-                });
             }
           })
           .catch((error) => {

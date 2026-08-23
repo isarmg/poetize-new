@@ -5,7 +5,6 @@ import com.ld.poetry.utils.StringUtil;
 import com.ld.poetry.vo.FileVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -20,8 +19,7 @@ import java.util.List;
 
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "local.enable", havingValue = "true")
-public class LocalUtil implements StoreService {
+public class LocalUtil {
 
     @Value("${local.uploadUrl}")
     private String uploadUrl;
@@ -29,7 +27,6 @@ public class LocalUtil implements StoreService {
     @Value("${local.downloadUrl}")
     private String downloadUrl;
 
-    @Override
     public void deleteFile(List<String> files) {
         if (CollectionUtils.isEmpty(files)) {
             return;
@@ -62,7 +59,6 @@ public class LocalUtil implements StoreService {
         }
     }
 
-    @Override
     public FileVO saveFile(FileVO fileVO) {
         if (fileVO == null || fileVO.getFile() == null || fileVO.getFile().isEmpty()) {
             throw new PoetryRuntimeException("上传文件不能为空！");
@@ -154,10 +150,5 @@ public class LocalUtil implements StoreService {
             throw new PoetryRuntimeException("本地下载地址未配置！");
         }
         return downloadUrl.endsWith("/") ? downloadUrl : downloadUrl + "/";
-    }
-
-    @Override
-    public String getStoreName() {
-        return StoreEnum.LOCAL.getCode();
     }
 }

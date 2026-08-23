@@ -342,10 +342,6 @@
               this.$router.push({path: '/'});
               const imUrl = new URL(this.$constant.imBaseURL, window.location.href);
               imUrl.searchParams.set("userToken", this.$common.encrypt(token));
-              const defaultStoreType = localStorage.getItem("defaultStoreType");
-              if (defaultStoreType && !["null", "undefined"].includes(defaultStoreType.toLowerCase())) {
-                imUrl.searchParams.set("defaultStoreType", defaultStoreType);
-              }
               window.open(imUrl.toString(), "_blank", "noopener,noreferrer");
             }
           })

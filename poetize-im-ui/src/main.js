@@ -81,11 +81,6 @@ function ensureSysConfig() {
       .then(result => {
         if (result.data !== null && typeof result.data === 'object' && !Array.isArray(result.data)) {
           store.commit('loadSysConfig', result.data)
-          const storedType = localStorage.getItem('defaultStoreType')
-          const configuredType = result.data['store.type']
-          if ((storedType !== 'local' && storedType !== 'qiniu') && (configuredType === 'local' || configuredType === 'qiniu')) {
-            localStorage.setItem('defaultStoreType', configuredType)
-          }
         }
       })
       .catch(() => {
@@ -104,11 +99,6 @@ router.beforeEach(async (to) => {
   }
 
   if (to.path === '/') {
-    const defaultStoreType = getSingleQueryValue(to.query.defaultStoreType)
-    if (defaultStoreType === 'local' || defaultStoreType === 'qiniu') {
-      localStorage.setItem('defaultStoreType', defaultStoreType)
-    }
-
     const userToken = getSingleQueryValue(to.query.userToken)
     if (typeof userToken === 'string' && userToken.length > 0) {
       try {

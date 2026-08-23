@@ -103,8 +103,5 @@ public class WebInfo implements Serializable {
     private String historyDayCount;
 
     @TableField(exist = false)
-    private String defaultStoreType;
-
-    @TableField(exist = false)
     private Integer adminUserId;
 }

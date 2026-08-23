@@ -37,9 +37,6 @@ function normalizeWebInfo(value) {
   const webInfo = isRecord(value) ? {...value} : {}
   return {
     webName: '',
-    webTitle: [],
-    notices: [],
-    randomCover: [],
     footer: '',
     backgroundImage: '',
     avatar: '',

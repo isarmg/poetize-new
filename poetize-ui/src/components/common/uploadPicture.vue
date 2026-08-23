@@ -5,7 +5,6 @@
       ref="upload"
       multiple
       drag
-      :action="$store.state.sysConfig.qiniuUrl"
       :on-change="handleChange"
       :on-success="handleSuccess"
       :on-error="handleError"
@@ -42,7 +41,6 @@
 </template>
 
 <script>
-  import upload from '../../utils/ajaxUpload';
   import {matchesFileAccept} from '../../utils/fileValidation';
 
   export default {
@@ -60,10 +58,6 @@
         type: String,
         default: "picture"
       },
-      storeType: {
-        type: String,
-        default: ""
-      },
       accept: {
         type: String,
         default: "image/*"
@@ -76,21 +70,6 @@
         type: Number,
         default: 5
       }
-    },
-
-    data() {
-      return {}
-    },
-
-    computed: {},
-
-    watch: {},
-
-    created() {
-    },
-
-    mounted() {
-
     },
 
     methods: {
@@ -112,51 +91,26 @@
           throw new Error("用户信息无效，请重新登录后上传");
         }
         const actorName = actor.username.replace(/[^a-zA-Z]/g, '');
-        const key = this.prefix + "/" + actorName + actor.id + new Date().getTime() + Math.floor(Math.random() * 1000) + suffix;
-        const currentStoreType = this.getStoreType();
+        const relativePath = this.prefix + "/" + actorName + actor.id + new Date().getTime() + Math.floor(Math.random() * 1000) + suffix;
+        const fd = new FormData();
+        fd.append("file", options.file);
+        fd.append("originalName", options.file.name);
+        fd.append("relativePath", relativePath);
+        fd.append("type", this.prefix);
 
-        if (currentStoreType === "local") {
-          let fd = new FormData();
-          fd.append("file", options.file);
-          fd.append("originalName", options.file.name);
-          fd.append("key", key);
-          fd.append("relativePath", key);
-          fd.append("type", this.prefix);
-          fd.append("storeType", currentStoreType);
-
-          return this.$http.upload(this.$constant.baseURL + "/resource/upload", fd, this.isAdmin, options);
-        } else if (currentStoreType === "qiniu") {
-          if (this.$common.isEmpty(options.action)) {
-            throw new Error("七牛云上传地址未配置");
-          }
-          const response = await this.$http.get(
-            this.$constant.baseURL + "/qiniu/getUpToken",
-            {key},
-            this.isAdmin
-          );
-          if (this.$common.isEmpty(response.data)) {
-            throw new Error("获取上传凭证失败");
-          }
-          options.data = {
-            token: response.data,
-            key
-          };
-          return upload(options);
-        }
-        throw new Error("不支持的存储平台");
+        return this.$http.upload(this.$constant.baseURL + "/resource/upload", fd, this.isAdmin, options);
       },
 
       // 文件上传成功时的钩子
-      handleSuccess(response, file) {
-        let url;
-        const currentStoreType = this.getStoreType();
-        if (currentStoreType === "local") {
-          url = response.data;
-        } else if (currentStoreType === "qiniu") {
-          url = this.$store.state.sysConfig['qiniu.downloadUrl'] + response.key;
-          this.$common.saveResource(this, this.prefix, url, file.size, file.raw.type, file.name, "qiniu", this.isAdmin);
+      handleSuccess(response) {
+        if (this.$common.isEmpty(response?.data)) {
+          this.$message({
+            message: "上传响应中缺少文件地址！",
+            type: "error"
+          });
+          return;
         }
-        this.$emit("addPicture", url);
+        this.$emit("addPicture", response.data);
       },
       handleError(err) {
         this.$message({
@@ -179,17 +133,6 @@
           if (fileIndex !== -1) {
             fileList.splice(fileIndex, 1);
           }
-        }
-      },
-      getStoreType() {
-        if (this.storeType) {
-          return this.storeType;
-        }
-        try {
-          const storedType = localStorage.getItem("defaultStoreType");
-          return storedType && !["null", "undefined"].includes(storedType.toLowerCase()) ? storedType : "local";
-        } catch {
-          return "local";
         }
       }
     }

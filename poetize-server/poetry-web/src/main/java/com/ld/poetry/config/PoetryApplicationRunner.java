@@ -33,10 +33,6 @@ import java.util.stream.Collectors;
 public class PoetryApplicationRunner implements ApplicationRunner {
     private static final String INSECURE_DEFAULT_ADMIN_PASSWORD = "47bce5c74f589f4867dbd57e9ca9f808";
 
-
-    @Value("${store.type}")
-    private String defaultType;
-
     @Value("${poetry.admin.initial-password:}")
     private String initialAdminPassword;
 
@@ -57,7 +53,6 @@ public class PoetryApplicationRunner implements ApplicationRunner {
         LambdaQueryChainWrapper<WebInfo> wrapper = new LambdaQueryChainWrapper<>(webInfoMapper);
         List<WebInfo> list = wrapper.list();
         if (!CollectionUtils.isEmpty(list)) {
-            list.get(0).setDefaultStoreType(defaultType);
             PoetryCache.put(CommonConst.WEB_INFO, list.get(0));
         }
 

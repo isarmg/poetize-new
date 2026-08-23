@@ -57,17 +57,6 @@ user:
   subscribe:
     format:
 
-store:
-  type:
-
 local:
-  enable:
   uploadUrl:
-  downloadUrl:
-
-qiniu:
-  enable:
-  accessKey:
-  secretKey:
-  bucket:
   downloadUrl:

@@ -79,12 +79,7 @@
         this.getComments();
       },
       getComments() {
-        let url = "";
-        if (this.isBoss) {
-          url = "/admin/comment/boss/list";
-        } else {
-          url = "/admin/comment/user/list";
-        }
+        const url = this.isBoss ? "/admin/comment/boss/list" : "/admin/comment/user/list";
         this.$http.post(this.$constant.baseURL + url, this.pagination, true)
           .then((res) => {
             if (!this.$common.isEmpty(res.data)) {

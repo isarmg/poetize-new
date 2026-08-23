@@ -2,7 +2,6 @@
   <div>
     <el-upload
       class="upload-demo"
-      :action="$store.state.sysConfig.qiniuUrl"
       multiple
       drag
       :limit="maxNumber"
@@ -43,7 +42,6 @@
 
 <script>
   import {ElMessage} from "element-plus";
-  import upload from '../../utils/ajaxUpload';
 
   const ALLOWED_IMAGE_TYPES = {
     'image/jpeg': ['jpg', 'jpeg'],
@@ -77,38 +75,14 @@
       }
     },
 
-    data() {
-      const storedType = localStorage.getItem("defaultStoreType");
-      const configuredType = this.$store.state.sysConfig['store.type'];
-      return {
-        storeType: storedType === 'local' || storedType === 'qiniu' ? storedType : configuredType
-      }
-    },
-
     methods: {
       submitUpload() {
-        if (this.storeType !== "local" && this.storeType !== "qiniu") {
-          ElMessage({
-            message: "未配置有效的图片存储方式！",
-            type: 'error'
-          });
-          return;
-        }
         this.$refs.upload.submit();
       },
 
       // 文件上传成功时的钩子
-      handleSuccess(response, file) {
-        let url;
-        if (this.storeType === "local") {
-          url = response?.data;
-        } else if (this.storeType === "qiniu") {
-          const downloadUrl = this.$store.state.sysConfig['qiniu.downloadUrl'];
-          if (typeof downloadUrl === 'string' && response?.key) {
-            url = downloadUrl + response.key;
-            this.$common.saveResource(this, this.prefix, url, file.size, file.raw?.type || '', file.name, "qiniu");
-          }
-        }
+      handleSuccess(response) {
+        const url = response?.data;
         if (!url) {
           ElMessage({
             message: "上传响应中缺少图片地址！",
@@ -129,45 +103,15 @@
         }
 
         const username = String(this.$store.state.currentUser.username || 'user').replace(/[^a-zA-Z]/g, '');
-        let key = this.prefix + "/" + username + this.$store.state.currentUser.id + new Date().getTime() + Math.floor(Math.random() * 1000) + suffix;
+        const relativePath = this.prefix + "/" + username + this.$store.state.currentUser.id + new Date().getTime() + Math.floor(Math.random() * 1000) + suffix;
+        const data = {
+          relativePath,
+          type: this.prefix,
+          originalName: options.file.name,
+          file: options.file
+        };
 
-        let data = {};
-        data.key = key;
-        options.data = data;
-
-        if (this.storeType === "local") {
-          data.relativePath = key;
-          data.type = this.prefix;
-          data.storeType = this.storeType;
-          data.originalName = options.file.name;
-          data.file = options.file;
-
-          return this.$http.upload(this.$constant.baseURL + "/resource/upload", data, options);
-        } else if (this.storeType === "qiniu") {
-          const action = this.$store.state.sysConfig.qiniuUrl;
-          if (typeof action !== 'string' || !action.trim()) {
-            return Promise.reject(new Error("未配置七牛云上传地址！"));
-          }
-
-          return this.$http.get(this.$constant.baseURL + "/qiniu/getUpToken", {key})
-            .then((res) => {
-              if (!res || !res.data) {
-                throw new Error("服务未返回上传凭证！");
-              }
-              data.token = res.data;
-              // ajaxUpload 通过回调完成；包装成 Promise，避免异步函数提前把 XHR 当成成功响应。
-              return new Promise((resolve, reject) => {
-                upload({
-                  ...options,
-                  action: action.trim(),
-                  onSuccess: resolve,
-                  onError: reject
-                });
-              });
-            });
-        }
-
-        return Promise.reject(new Error("未配置有效的图片存储方式！"));
+        return this.$http.upload(this.$constant.baseURL + "/resource/upload", data, options);
       },
 
       handleError(err) {

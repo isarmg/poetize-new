@@ -8,8 +8,6 @@ public class FileVO {
 
     private String type;
 
-    private String storeType;
-
     private String relativePath;
 
     private String absolutePath;

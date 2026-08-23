@@ -3,6 +3,8 @@ package com.ld.poetry.constants;
 
 public class CommonConst {
 
+    public static final String STORE_TYPE_LOCAL = "local";
+
     /**
      * 超级管理员的用户Id
      */
