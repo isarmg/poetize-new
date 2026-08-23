@@ -3,7 +3,7 @@ package com.ld.poetry.im.http.service.impl;
 import com.ld.poetry.im.http.entity.ImChatUserFriend;
 import com.ld.poetry.im.http.dao.ImChatUserFriendMapper;
 import com.ld.poetry.im.http.service.ImChatUserFriendService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
 /**

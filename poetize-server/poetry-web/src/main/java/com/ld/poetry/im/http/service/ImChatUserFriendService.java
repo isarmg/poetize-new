@@ -1,7 +1,7 @@
 package com.ld.poetry.im.http.service;
 
 import com.ld.poetry.im.http.entity.ImChatUserFriend;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 
 /**
  * <p>

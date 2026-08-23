@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+bin_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+app_dir="$(cd -- "${bin_dir}/.." && pwd)"
+env_file="${POETIZE_ENV_FILE:-${app_dir}/config/poetize.env}"
+
+if [[ -f "${env_file}" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${env_file}"
+  set +a
+fi
+
+java_bin="${JAVA_BIN:-java}"
+if ! command -v "${java_bin}" >/dev/null 2>&1; then
+  echo "Java 25 was not found. Set JAVA_BIN or install a Java 25 runtime." >&2
+  exit 1
+fi
+
+export POETRY_DATABASE_INIT_SCRIPT="${POETRY_DATABASE_INIT_SCRIPT:-file:${app_dir}/sql/poetry.sql}"
+read -r -a java_options <<< "${JAVA_OPTS:--Xms256m -Xmx512m}"
+exec "${java_bin}" "${java_options[@]}" -jar "${app_dir}/bin/poetize-server.jar" "$@"

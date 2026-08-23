@@ -4,11 +4,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.tio.core.ChannelContext;
 import org.tio.core.intf.Packet;
-import org.tio.websocket.server.WsServerAioListener;
+import org.tio.websocket.server.WsTioServerListener;
 
 @Component
 @Slf4j
-public class ImServerAioListener extends WsServerAioListener {
+public class ImServerAioListener extends WsTioServerListener {
 
     /**
      * 建链后触发本方法，注：建链不一定成功，需要关注参数isConnected

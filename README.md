@@ -22,6 +22,17 @@ ps: 虽然我知道，大部分人都是来了直接下载源代码后就潇洒�
 
 开发环境：Node.js 24.19 LTS、Maven 3.9+、JDK 25
 
+## GitHub Release
+
+推送 `v` 开头的标签后，GitHub Actions 会自动构建后端与两个前端，并创建包含 Linux x86-64 部署包和 SHA-256 校验文件的 Release：
+
+```bash
+git tag v2.0.0
+git push origin v2.0.0
+```
+
+Release 压缩包需要目标机安装 Java 25、MySQL 和 Nginx。压缩包内包含启动脚本、数据库初始化 SQL、Nginx 配置和 systemd 服务示例。
+
 ## 升级部署注意
 
 - 新数据库仍带有公开的占位管理员散列。首次启动前必须设置环境变量 `POETRY_ADMIN_INITIAL_PASSWORD`，值至少 8 位并同时包含字母和数字；服务会在启动时将其转换为 BCrypt，未设置时会拒绝带弱默认密码启动。

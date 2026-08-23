@@ -1,7 +1,7 @@
 package com.ld.poetry.service;
 
 import com.ld.poetry.entity.WeiYan;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 
 /**
  * <p>

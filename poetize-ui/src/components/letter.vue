@@ -17,7 +17,7 @@
               <div class="flip">
                 <div class="front"></div>
                 <div class="back">
-                  <p class="letter">Ming<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;夜にはいつも寒いよね、でも、手を繋いでいると、暖かくなるよ！<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;どんなに寒い夜も、君と二人でいれば、ちっとも寒くない！<br><br>
+                  <p class="letter">Ming<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;夜にはいつも寒いよね、でも、手を繋いでいると、暖かくなるよ！<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;どんなに寒い夜も、君と二人でいれば、ちっとも寒くない！<br><br></p>
                   <p style="float:right; display:block; width:80px;">Hao</p><span class="typed-cursor"
                                                                                   style="animation-iteration-count: infinite;">|</span>
                   <a id="close" href="#">Close</a>

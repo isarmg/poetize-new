@@ -5,7 +5,7 @@ import cn.hutool.crypto.digest.BCrypt;
 import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.ld.poetry.config.PoetryResult;
 import com.ld.poetry.constants.CommonConst;
 import com.ld.poetry.dao.UserMapper;
@@ -91,10 +91,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 || !StringUtils.hasText(password) || password.length() > 512 || isAdmin == null) {
             return PoetryResult.fail("账号/密码错误，请重新输入！");
         }
-        account = account.trim();
+        String normalizedAccount = account.trim();
         String remoteAddress = PoetryUtil.getIpAddr(PoetryUtil.getRequest());
         String accountDigest = DigestUtils.md5DigestAsHex(
-                account.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
+                normalizedAccount.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
         String failureKey = LOGIN_FAILURE_PREFIX + remoteAddress + "_" + accountDigest;
         if (PoetryCache.getCount(failureKey) >= LOGIN_FAILURE_LIMIT) {
             return PoetryResult.fail("账号/密码错误，请重新输入！");
@@ -102,11 +102,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String plainPassword = decryptPassword(password);
 
         List<User> candidates = lambdaQuery().and(wrapper -> wrapper
-                        .eq(User::getUsername, account)
+                        .eq(User::getUsername, normalizedAccount)
                         .or()
-                        .eq(User::getEmail, account)
+                        .eq(User::getEmail, normalizedAccount)
                         .or()
-                        .eq(User::getPhoneNumber, account))
+                        .eq(User::getPhoneNumber, normalizedAccount))
                 .list();
         User one = candidates.stream()
                 .filter(candidate -> passwordMatches(plainPassword, candidate.getPassword()))
