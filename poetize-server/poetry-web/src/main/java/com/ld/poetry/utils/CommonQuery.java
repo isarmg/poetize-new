@@ -22,7 +22,8 @@ import org.springframework.util.StringUtils;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 
@@ -78,20 +79,19 @@ public class CommonQuery {
         }
     }
 
-    public void saveHistory(String ip) {
+    public void saveHistory(String ip, Integer userId) {
         if (!StringUtils.hasText(ip)) {
             return;
         }
 
-        Integer userId = PoetryUtil.getUserId();
         String ipUser = ip + (userId != null ? "_" + userId.toString() : "");
 
-        CopyOnWriteArraySet<String> ipHistory = (CopyOnWriteArraySet<String>) PoetryCache.get(CommonConst.IP_HISTORY);
+        Set<String> ipHistory = (Set<String>) PoetryCache.get(CommonConst.IP_HISTORY);
         if (ipHistory == null) {
             synchronized (IP_HISTORY_LOCK) {
-                ipHistory = (CopyOnWriteArraySet<String>) PoetryCache.get(CommonConst.IP_HISTORY);
+                ipHistory = (Set<String>) PoetryCache.get(CommonConst.IP_HISTORY);
                 if (ipHistory == null) {
-                    ipHistory = new CopyOnWriteArraySet<>();
+                    ipHistory = ConcurrentHashMap.newKeySet();
                     PoetryCache.put(CommonConst.IP_HISTORY, ipHistory);
                 }
             }

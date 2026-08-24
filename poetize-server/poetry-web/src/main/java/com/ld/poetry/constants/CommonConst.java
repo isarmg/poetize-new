@@ -31,6 +31,10 @@ public class CommonConst {
 
     public static final String ADMIN_ACCESS_TOKEN = "admin_access_token_";
 
+    public static final String IM_LOGIN_TICKET = "im_login_ticket_";
+
+    public static final String IM_LOGIN_TICKET_USER = "im_login_ticket_user_";
+
     public static final String TOKEN_HEADER = "Authorization";
 
     /**
@@ -59,6 +63,8 @@ public class CommonConst {
      * Token过期时间：10天
      */
     public static final long TOKEN_EXPIRE = 864000;
+
+    public static final long IM_LOGIN_TICKET_EXPIRE = 60;
 
     /**
      * Code过期时间：1天

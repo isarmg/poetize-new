@@ -16,6 +16,9 @@ import com.ld.poetry.vo.BaseRequestVO;
 import com.ld.poetry.vo.FileVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -95,6 +98,7 @@ public class ResourceController {
      */
     @PostMapping("/deleteResource")
     @LoginCheck(0)
+    @Transactional(rollbackFor = Exception.class)
     public PoetryResult deleteResource(@RequestParam("path") String path) {
         if (!StringUtils.hasText(path)) {
             return PoetryResult.fail("资源路径不能为空！");
@@ -107,10 +111,21 @@ public class ResourceController {
             return PoetryResult.fail("仅支持删除服务器本地资源！");
         }
 
-        localUtil.deleteFile(Collections.singletonList(path));
         if (!resourceService.lambdaUpdate().eq(Resource::getPath, path).remove()) {
-            return PoetryResult.fail("文件已删除，但资源记录清理失败，请重试！");
+            return PoetryResult.fail("资源记录清理失败，未删除文件！");
         }
+        // 仅在数据库事务提交成功后删除物理文件，避免提交失败造成文件永久丢失。
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    localUtil.deleteFile(Collections.singletonList(path));
+                } catch (RuntimeException e) {
+                    // 数据库记录已经提交删除，此时保留孤立文件比误删仍被引用的文件更安全。
+                    log.error("资源记录已删除，但物理文件删除失败，需要人工清理：{}", path, e);
+                }
+            }
+        });
         return PoetryResult.success();
     }
 

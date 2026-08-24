@@ -8,11 +8,11 @@ export default function () {
   this.ip = constant.imBaseURL;
   this.port = constant.wsPort;
   const token = getStoredUserToken();
-  this.paramStr = token ? new URLSearchParams({Authorization: token}).toString() : '';
+  this.protocols = token ? [token] : [];
   this.binaryType = 'blob';
 
   this.initWs = () => {
-    this.tio = new Tiows(this.ws_protocol, this.ip, this.port, this.paramStr, this.binaryType);
+    this.tio = new Tiows(this.ws_protocol, this.ip, this.port, this.protocols, this.binaryType);
     this.tio.connect();
   }
 

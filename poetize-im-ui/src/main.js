@@ -56,9 +56,18 @@ app.config.globalProperties.$http = http
 app.config.globalProperties.$common = common
 app.config.globalProperties.$constant = constant
 
-function getSingleQueryValue(value) {
-  return Array.isArray(value) ? value[0] : value
+function consumeLoginTicket() {
+  const hash = window.location.hash.startsWith('#')
+    ? window.location.hash.slice(1)
+    : window.location.hash
+  const ticket = new URLSearchParams(hash).get('ticket')
+  if (ticket) {
+    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
+  }
+  return ticket
 }
+
+const loginTicket = consumeLoginTicket()
 
 function hasStoredToken() {
   return Boolean(getStoredUserToken())
@@ -99,11 +108,9 @@ router.beforeEach(async (to) => {
   }
 
   if (to.path === '/') {
-    const userToken = getSingleQueryValue(to.query.userToken)
-    if (typeof userToken === 'string' && userToken.length > 0) {
+    if (typeof loginTicket === 'string' && loginTicket.length > 0) {
       try {
-        // 使用表单编码而不是手工拼接，避免令牌中的 +、&、= 被破坏。
-        const result = await http.post(constant.baseURL + '/user/token', {userToken}, false)
+        const result = await http.post(constant.baseURL + '/user/exchangeImLoginTicket', {ticket: loginTicket}, false)
         if (!common.isEmpty(result.data) && result.data.accessToken) {
           store.commit('loadCurrentUser', result.data)
           localStorage.setItem('userToken', result.data.accessToken)

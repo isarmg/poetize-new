@@ -23,6 +23,8 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.tio.core.ChannelContext;
 import org.tio.core.Tio;
+import org.tio.http.common.HeaderName;
+import org.tio.http.common.HeaderValue;
 import org.tio.http.common.HttpRequest;
 import org.tio.http.common.HttpResponse;
 import org.tio.utils.lock.SetWithLock;
@@ -38,6 +40,8 @@ import java.util.List;
 @Slf4j
 public class ImWsMsgHandler implements IWsMsgHandler {
     private static final String AUTHENTICATED_USER_ID = "authenticatedUserId";
+
+    private static final String WEBSOCKET_PROTOCOL_HEADER = "sec-websocket-protocol";
 
     private static final int MAX_MESSAGE_LENGTH = 1000;
 
@@ -67,17 +71,15 @@ public class ImWsMsgHandler implements IWsMsgHandler {
      */
     @Override
     public HttpResponse handshake(HttpRequest httpRequest, HttpResponse httpResponse, ChannelContext channelContext) {
-        String token = httpRequest.getParam(CommonConst.TOKEN_HEADER);
-
-        if (!StringUtils.hasText(token)) {
-            return null;
-        }
-
-        User user = (User) PoetryCache.get(token);
-
+        User user = getAuthenticatedUser(httpRequest);
         if (user == null) {
             return null;
         }
+
+        // 浏览器 WebSocket 无法自定义 Authorization 请求头，使用子协议传递
+        // 会话令牌并在响应中回显，避免令牌出现在 URL/访问日志。
+        String token = getWebSocketToken(httpRequest);
+        httpResponse.addHeader(HeaderName.Sec_Websocket_Protocol, HeaderValue.from(token));
 
         log.info("握手成功：用户ID：{}, 用户名：{}", user.getId(), user.getUsername());
 
@@ -89,8 +91,7 @@ public class ImWsMsgHandler implements IWsMsgHandler {
      */
     @Override
     public void onAfterHandshaked(HttpRequest httpRequest, HttpResponse httpResponse, ChannelContext channelContext) {
-        String token = httpRequest.getParam(CommonConst.TOKEN_HEADER);
-        User user = (User) PoetryCache.get(token);
+        User user = getAuthenticatedUser(httpRequest);
         if (user == null) {
             Tio.remove(channelContext, "登录状态已失效");
             return;
@@ -253,5 +254,26 @@ public class ImWsMsgHandler implements IWsMsgHandler {
         }
         //返回值是要发送给客户端的内容，一般都是返回null
         return null;
+    }
+
+    private User getAuthenticatedUser(HttpRequest httpRequest) {
+        String token = getWebSocketToken(httpRequest);
+        if (!StringUtils.hasText(token) || !token.startsWith(CommonConst.USER_ACCESS_TOKEN)) {
+            return null;
+        }
+        Object cached = PoetryCache.get(token);
+        if (!(cached instanceof User user) || !Boolean.TRUE.equals(user.getUserStatus())) {
+            return null;
+        }
+        Object mappedToken = PoetryCache.get(CommonConst.USER_TOKEN + user.getId());
+        return token.equals(mappedToken) ? user : null;
+    }
+
+    private String getWebSocketToken(HttpRequest httpRequest) {
+        String protocol = httpRequest.getHeader(WEBSOCKET_PROTOCOL_HEADER);
+        if (!StringUtils.hasText(protocol) || protocol.indexOf(',') >= 0) {
+            return null;
+        }
+        return protocol.trim();
     }
 }

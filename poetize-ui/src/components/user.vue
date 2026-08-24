@@ -340,9 +340,6 @@
               this.username = "";
               this.password = "";
               this.$router.push({path: '/'});
-              const imUrl = new URL(this.$constant.imBaseURL, window.location.href);
-              imUrl.searchParams.set("userToken", this.$common.encrypt(token));
-              window.open(imUrl.toString(), "_blank", "noopener,noreferrer");
             }
           })
           .catch((error) => {

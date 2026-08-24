@@ -62,7 +62,9 @@ import java.util.stream.Collectors;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String LOGIN_FAILURE_PREFIX = "login_failure_";
+    private static final String LOGIN_IP_FAILURE_PREFIX = "login_ip_failure_";
     private static final int LOGIN_FAILURE_LIMIT = 10;
+    private static final int LOGIN_IP_FAILURE_LIMIT = 50;
     private static final long LOGIN_FAILURE_EXPIRE = 900L;
     private static final Object SESSION_LOCK = new Object();
 
@@ -96,7 +98,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String accountDigest = DigestUtils.md5DigestAsHex(
                 normalizedAccount.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
         String failureKey = LOGIN_FAILURE_PREFIX + remoteAddress + "_" + accountDigest;
-        if (PoetryCache.getCount(failureKey) >= LOGIN_FAILURE_LIMIT) {
+        String ipFailureKey = LOGIN_IP_FAILURE_PREFIX + remoteAddress;
+        if (PoetryCache.getCount(failureKey) >= LOGIN_FAILURE_LIMIT
+                || PoetryCache.getCount(ipFailureKey) >= LOGIN_IP_FAILURE_LIMIT) {
             return PoetryResult.fail("账号/密码错误，请重新输入！");
         }
         String plainPassword = decryptPassword(password);
@@ -115,6 +119,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         if (one == null) {
             PoetryCache.increment(failureKey, LOGIN_FAILURE_EXPIRE);
+            PoetryCache.increment(ipFailureKey, LOGIN_FAILURE_EXPIRE);
             return PoetryResult.fail("账号/密码错误，请重新输入！");
         }
         PoetryCache.remove(failureKey);
@@ -663,18 +668,46 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public PoetryResult<UserVO> token(String userToken) {
-        userToken = decryptToken(userToken);
-
-        if (!StringUtils.hasText(userToken)) {
-            throw new PoetryRuntimeException("未登陆，请登陆后再进行操作！");
+    public PoetryResult<String> createImLoginTicket() {
+        String userToken = PoetryUtil.getToken();
+        User user = PoetryUtil.getCurrentUser();
+        if (user == null || !StringUtils.hasText(userToken)
+                || !userToken.startsWith(CommonConst.USER_ACCESS_TOKEN)
+                || !userToken.equals(PoetryCache.get(CommonConst.USER_TOKEN + user.getId()))) {
+            throw new PoetryRuntimeException("当前用户会话无效！");
         }
 
-        User user = (User) PoetryCache.get(userToken);
+        String ticket = UUID.randomUUID().toString().replace("-", "");
+        synchronized (SESSION_LOCK) {
+            String userTicketKey = CommonConst.IM_LOGIN_TICKET_USER + user.getId();
+            Object oldTicket = PoetryCache.remove(userTicketKey);
+            if (oldTicket instanceof String value) {
+                PoetryCache.remove(CommonConst.IM_LOGIN_TICKET + value);
+            }
+            PoetryCache.put(CommonConst.IM_LOGIN_TICKET + ticket, userToken,
+                    CommonConst.IM_LOGIN_TICKET_EXPIRE);
+            PoetryCache.put(userTicketKey, ticket, CommonConst.IM_LOGIN_TICKET_EXPIRE);
+        }
+        return PoetryResult.success(ticket);
+    }
 
-        if (user == null) {
+    @Override
+    public PoetryResult<UserVO> exchangeImLoginTicket(String ticket) {
+        if (!StringUtils.hasText(ticket) || !ticket.matches("[0-9a-f]{32}")) {
+            throw new PoetryRuntimeException("IM 登录票据无效！");
+        }
+        Object cachedToken = PoetryCache.remove(CommonConst.IM_LOGIN_TICKET + ticket);
+        if (!(cachedToken instanceof String userToken)
+                || !userToken.startsWith(CommonConst.USER_ACCESS_TOKEN)) {
+            throw new PoetryRuntimeException("IM 登录票据已过期或已使用！");
+        }
+
+        Object cachedUser = PoetryCache.get(userToken);
+        if (!(cachedUser instanceof User user) || !Boolean.TRUE.equals(user.getUserStatus())
+                || !userToken.equals(PoetryCache.get(CommonConst.USER_TOKEN + user.getId()))) {
             throw new PoetryRuntimeException("登录已过期，请重新登陆！");
         }
+        PoetryCache.removeIfEquals(CommonConst.IM_LOGIN_TICKET_USER + user.getId(), ticket);
 
         UserVO userVO = new UserVO();
         BeanUtils.copyProperties(user, userVO);
@@ -829,25 +862,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private boolean isBcryptCompatible(String password) {
         return password != null && password.getBytes(StandardCharsets.UTF_8).length <= 72;
-    }
-
-    private String decryptToken(String encryptedToken) {
-        if (!StringUtils.hasText(encryptedToken) || encryptedToken.length() > 512) {
-            throw new PoetryRuntimeException("登录凭证不能为空！");
-        }
-        try {
-            String token = new String(
-                    SecureUtil.aes(CommonConst.CRYPOTJS_KEY.getBytes(StandardCharsets.UTF_8)).decrypt(encryptedToken),
-                    StandardCharsets.UTF_8);
-            if (!StringUtils.hasText(token)) {
-                throw new PoetryRuntimeException("登录凭证无效！");
-            }
-            return token;
-        } catch (PoetryRuntimeException e) {
-            throw e;
-        } catch (RuntimeException e) {
-            throw new PoetryRuntimeException("登录凭证格式不正确！");
-        }
     }
 
     private String decryptPassword(String encryptedPassword) {

@@ -4,15 +4,15 @@ import ReconnectingWebSocket from 'reconnecting-websocket';
  * @param {*} ws_protocol wss or ws
  * @param {*} ip
  * @param {*} port
- * @param {*} paramStr 加在ws url后面的请求参数，形如：name=张三&id=12
+ * @param {*} protocols WebSocket 子协议列表
  * @param {*} binaryType 'blob' or 'arraybuffer'
  */
-export default function (ws_protocol, ip, port, paramStr, binaryType) {
+export default function (ws_protocol, ip, port, protocols, binaryType) {
 
   this.ws_protocol = ws_protocol;
   this.ip = ip;
   this.port = port;
-  this.paramStr = paramStr;
+  this.protocols = protocols;
   this.binaryType = binaryType;
 
   if (port === "") {
@@ -20,12 +20,8 @@ export default function (ws_protocol, ip, port, paramStr, binaryType) {
   } else {
     this.url = ws_protocol + '://' + ip + ":" + port + '/socket';
   }
-  if (paramStr) {
-    this.url += '?' + paramStr;
-  }
-
   this.connect = () => {
-    const ws = new ReconnectingWebSocket(this.url);
+    const ws = new ReconnectingWebSocket(this.url, this.protocols);
     this.ws = ws;
     ws.binaryType = this.binaryType;
   }

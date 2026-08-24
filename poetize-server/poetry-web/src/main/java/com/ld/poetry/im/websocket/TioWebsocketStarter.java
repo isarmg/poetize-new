@@ -2,6 +2,7 @@ package com.ld.poetry.im.websocket;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.tio.server.TioServerConfig;
 import org.tio.websocket.server.WsServerStarter;
@@ -23,6 +24,9 @@ public class TioWebsocketStarter {
 
     private ImIpStatListener imIpStatListener;
 
+    @Value("${im.bind-address:127.0.0.1}")
+    private String bindAddress;
+
     public TioWebsocketStarter(ImWsMsgHandler imWsMsgHandler, ImServerAioListener imServerAioListener, ImIpStatListener imIpStatListener) {
         this.imWsMsgHandler = imWsMsgHandler;
         this.imServerAioListener = imServerAioListener;
@@ -32,6 +36,7 @@ public class TioWebsocketStarter {
     @PostConstruct
     public void init() throws Exception {
         wsServerStarter = new WsServerStarter(ImConfigConst.SERVER_PORT, imWsMsgHandler);
+        wsServerStarter.getWsServerConfig().setBindIp(bindAddress);
         serverTioConfig = wsServerStarter.getTioServerConfig();
         serverTioConfig.setName(ImConfigConst.PROTOCOL_NAME);
         serverTioConfig.setTioServerListener(imServerAioListener);

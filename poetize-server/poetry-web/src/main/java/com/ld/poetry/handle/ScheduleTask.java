@@ -11,7 +11,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 @EnableScheduling
@@ -23,12 +24,8 @@ public class ScheduleTask {
 
     @Scheduled(cron = "0 0 0 * * ?")
     public void cleanIpHistory() {
-        CopyOnWriteArraySet<String> ipHistory = (CopyOnWriteArraySet<String>) PoetryCache.get(CommonConst.IP_HISTORY);
-        if (ipHistory == null) {
-            ipHistory = new CopyOnWriteArraySet<>();
-            PoetryCache.put(CommonConst.IP_HISTORY, ipHistory);
-        }
-        ipHistory.clear();
+        Set<String> ipHistory = ConcurrentHashMap.newKeySet();
+        PoetryCache.put(CommonConst.IP_HISTORY, ipHistory);
 
         Map<String, Object> history = new HashMap<>();
         history.put(CommonConst.IP_HISTORY_PROVINCE, historyInfoMapper.getHistoryByProvince());

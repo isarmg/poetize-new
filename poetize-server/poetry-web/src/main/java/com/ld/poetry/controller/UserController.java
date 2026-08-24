@@ -52,11 +52,20 @@ public class UserController {
 
 
     /**
-     * Token登录
+     * 生成一次性 IM 登录票据。
      */
-    @PostMapping("/token")
-    public PoetryResult<UserVO> login(@RequestParam("userToken") String userToken) {
-        return userService.token(userToken);
+    @PostMapping("/imLoginTicket")
+    @LoginCheck
+    public PoetryResult<String> createImLoginTicket() {
+        return userService.createImLoginTicket();
+    }
+
+    /**
+     * 使用一次性票据换取 IM 会话。
+     */
+    @PostMapping("/exchangeImLoginTicket")
+    public PoetryResult<UserVO> exchangeImLoginTicket(@RequestParam("ticket") String ticket) {
+        return userService.exchangeImLoginTicket(ticket);
     }
 
 
@@ -165,4 +174,3 @@ public class UserController {
         return userService.subscribe(labelId, flag);
     }
 }
-

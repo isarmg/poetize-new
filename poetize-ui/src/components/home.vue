@@ -368,17 +368,36 @@
         this.toolbarDrawer = false;
       },
 
-      goIm() {
+      async goIm() {
         const rawToken = getValidToken("userToken");
         if (this.$common.isEmpty(this.$store.state.currentUser) || this.$common.isEmpty(rawToken)) {
           this.$message({
             message: "请先登录！",
             type: "error"
           });
-        } else {
+          return;
+        }
+
+        const popup = window.open("about:blank", "_blank");
+        if (!popup) {
+          this.$message({message: "浏览器已阻止新窗口，请允许后重试！", type: "warning"});
+          return;
+        }
+        popup.opener = null;
+        try {
+          const result = await this.$http.post(this.$constant.baseURL + "/user/imLoginTicket");
+          if (typeof result.data !== "string" || !result.data) {
+            throw new Error("IM 登录票据生成失败！");
+          }
           const url = new URL(this.$constant.imBaseURL, window.location.href);
-          url.searchParams.set("userToken", this.$common.encrypt(rawToken));
-          window.open(url.toString(), "_blank", "noopener,noreferrer");
+          url.hash = new URLSearchParams({ticket: result.data}).toString();
+          popup.location.replace(url.toString());
+        } catch (error) {
+          popup.close();
+          this.$message({
+            message: error?.message || "IM 打开失败！",
+            type: "error"
+          });
         }
       },
 

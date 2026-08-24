@@ -26,7 +26,8 @@ import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Component
@@ -71,7 +72,11 @@ public class PoetryApplicationRunner implements ApplicationRunner {
                 .ge(HistoryInfo::getCreateTime, LocalDateTime.now().with(LocalTime.MIN))
                 .list();
 
-        PoetryCache.put(CommonConst.IP_HISTORY, new CopyOnWriteArraySet<>(infoList.stream().map(info -> info.getIp() + (info.getUserId() != null ? "_" + info.getUserId().toString() : "")).collect(Collectors.toList())));
+        Set<String> ipHistory = ConcurrentHashMap.newKeySet();
+        ipHistory.addAll(infoList.stream()
+                .map(info -> info.getIp() + (info.getUserId() != null ? "_" + info.getUserId() : ""))
+                .collect(Collectors.toList()));
+        PoetryCache.put(CommonConst.IP_HISTORY, ipHistory);
 
         Map<String, Object> history = new HashMap<>();
         history.put(CommonConst.IP_HISTORY_PROVINCE, historyInfoMapper.getHistoryByProvince());

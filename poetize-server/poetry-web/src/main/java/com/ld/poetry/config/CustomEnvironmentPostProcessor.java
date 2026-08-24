@@ -45,7 +45,10 @@ public class CustomEnvironmentPostProcessor implements EnvironmentPostProcessor 
                 try (Statement statement = connection.createStatement()) {
                     try (ResultSet resultSet = statement.executeQuery(SOURCE_SQL)) {
                         while (resultSet.next()) {
-                            map.put(resultSet.getString("config_key"), resultSet.getString("config_value"));
+                            String key = resultSet.getString("config_key");
+                            if (SysConfigPolicy.isRuntimeKey(key)) {
+                                map.put(key, resultSet.getString("config_value"));
+                            }
                         }
                     }
                 }

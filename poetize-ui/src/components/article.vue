@@ -570,7 +570,7 @@
       getArticle(password) {
         const requestedId = this.id;
         const requestId = ++this.articleRequestId;
-        this.$http.get(this.$constant.baseURL + "/article/getArticleById", {id: requestedId, password: password})
+        this.$http.post(this.$constant.baseURL + "/article/getArticleById", {id: requestedId, password: password}, false, false)
           .then((res) => {
             if (requestId !== this.articleRequestId || String(this.id) !== String(requestedId)) {
               return;

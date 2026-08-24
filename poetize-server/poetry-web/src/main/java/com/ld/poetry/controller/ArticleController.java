@@ -89,11 +89,19 @@ public class ArticleController {
     }
 
     /**
-     * 查询文章
+     * 查询无需密码的文章，保留 GET 仅用于公开内容兼容。
      */
     @GetMapping("/getArticleById")
-    public PoetryResult<ArticleVO> getArticleById(@RequestParam("id") Integer id, @RequestParam(value = "password", required = false) String password) {
+    public PoetryResult<ArticleVO> getArticleById(@RequestParam("id") Integer id) {
+        return articleService.getArticleById(id, null);
+    }
+
+    /**
+     * 文章访问密码只允许放在 POST 请求体，避免进入浏览器历史与代理访问日志。
+     */
+    @PostMapping("/getArticleById")
+    public PoetryResult<ArticleVO> getArticleByIdWithPassword(@RequestParam("id") Integer id,
+                                                               @RequestParam(value = "password", required = false) String password) {
         return articleService.getArticleById(id, password);
     }
 }
-

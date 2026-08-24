@@ -1,5 +1,7 @@
 server:
   port: 8081
+  # 默认仅允许本机 Nginx 访问，避免绕过 HTTPS 反向代理直连后端。
+  address: ${SERVER_ADDRESS:127.0.0.1}
   forward-headers-strategy: native
   tomcat:
     threads.max: 50
@@ -60,3 +62,6 @@ user:
 local:
   uploadUrl:
   downloadUrl:
+
+im:
+  bind-address: ${IM_BIND_ADDRESS:127.0.0.1}
