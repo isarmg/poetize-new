@@ -28,7 +28,8 @@ import {
 } from 'element-plus'
 import 'element-plus/dist/index.css'
 
-import http, {getStoredUserToken} from './utils/request'
+import http from './utils/request'
+import {clearStoredUserToken, getStoredUserToken, saveStoredUserToken} from './utils/auth'
 import common from './utils/common'
 import constant from './utils/constant'
 
@@ -113,14 +114,15 @@ router.beforeEach(async (to) => {
         const result = await http.post(constant.baseURL + '/user/exchangeImLoginTicket', {ticket: loginTicket}, false)
         if (!common.isEmpty(result.data) && result.data.accessToken) {
           store.commit('loadCurrentUser', result.data)
-          localStorage.setItem('userToken', result.data.accessToken)
-          return redirectTo(constant.imURL)
+          if (saveStoredUserToken(result.data.accessToken)) {
+            return redirectTo(constant.imURL)
+          }
         }
       } catch {
         // 统一在下方清理无效会话。
       }
       store.commit('loadCurrentUser', {})
-      localStorage.removeItem('userToken')
+      clearStoredUserToken()
       return redirectTo(constant.webBaseURL)
     }
   }
@@ -131,7 +133,7 @@ router.beforeEach(async (to) => {
   }
 
   store.commit('loadCurrentUser', {})
-  localStorage.removeItem('userToken')
+  clearStoredUserToken()
   return redirectTo(constant.webBaseURL)
 })
 

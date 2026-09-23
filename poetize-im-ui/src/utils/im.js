@@ -1,6 +1,6 @@
 import Tiows from "./tiows";
 import constant from "./constant";
-import {getStoredUserToken} from "./request";
+import {getStoredUserToken} from "./auth";
 import {ElMessage} from "element-plus";
 
 export default function () {

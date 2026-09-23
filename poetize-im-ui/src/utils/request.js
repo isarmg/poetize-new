@@ -4,15 +4,7 @@ import constant from "./constant";
 import qs from "qs";
 
 import store from "../store";
-
-export function getStoredUserToken() {
-  const value = localStorage.getItem("userToken");
-  if (typeof value !== 'string') {
-    return '';
-  }
-  const token = value.trim();
-  return token && !/^(null|undefined)$/i.test(token) ? token : '';
-}
+import {clearStoredUserToken, getStoredUserToken} from "./auth";
 
 function getAuthHeaders() {
   const token = getStoredUserToken();
@@ -58,7 +50,7 @@ axios.interceptors.response.use(function (response) {
   if (data !== null && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, "code") && data.code !== 200) {
     if (data.code === 300) {
       store.commit("loadCurrentUser", {});
-      localStorage.removeItem("userToken");
+      clearStoredUserToken();
       window.location.replace(constant.webBaseURL + "/user");
     }
     return Promise.reject(new Error(data.message || '请求失败'));
