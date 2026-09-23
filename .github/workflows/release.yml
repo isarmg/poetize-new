@@ -31,12 +31,16 @@ jobs:
         working-directory: poetize-ui
         run: |
           npm ci --include=dev
+          npm test
+          npm run lint
           npm run build
 
       - name: Build IM UI
         working-directory: poetize-im-ui
         run: |
           npm ci --include=dev
+          npm test
+          npm run lint
           npm run build
 
       - name: Set up Java
@@ -48,7 +52,7 @@ jobs:
 
       - name: Build backend
         working-directory: poetize-server
-        run: mvn --batch-mode --no-transfer-progress -DskipTests package
+        run: mvn --batch-mode --no-transfer-progress package
 
       - name: Package Linux x86_64 distribution
         run: ./scripts/package-linux-x86_64.sh "${GITHUB_REF_NAME}"
@@ -70,5 +74,5 @@ jobs:
             dist/*.tar.gz \
             dist/*.sha256 \
             --verify-tag \
-            --generate-notes \
+            --notes-file "docs/releases/${GITHUB_REF_NAME#v}.md" \
             --title "Poetize ${GITHUB_REF_NAME}"

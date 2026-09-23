@@ -27,11 +27,13 @@ ps: 虽然我知道，大部分人都是来了直接下载源代码后就潇洒�
 推送 `v` 开头的标签后，GitHub Actions 会自动构建后端与两个前端，并创建包含 Linux x86-64 部署包和 SHA-256 校验文件的 Release：
 
 ```bash
-git tag v2.0.0
-git push origin v2.0.0
+git tag v2.0.3
+git push poetize-new v2.0.3
 ```
 
 Release 压缩包需要目标机安装 Java 25、MySQL 和 Nginx。压缩包内包含启动脚本、数据库初始化 SQL、Nginx 配置和 systemd 服务示例。
+
+主站和聊天室会从浏览器存储中读取非空登录令牌。聊天室通过一次性登录票据建立会话；如果浏览器禁止写入存储，聊天室会清理内存中的登录状态并返回主站。两端的令牌处理可分别在 `poetize-ui` 和 `poetize-im-ui` 目录运行 `npm test` 验证，发布流程还会执行前端 lint、构建和后端 Maven 构建。
 
 ## 升级部署注意
 
