@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        project: [poetize-ui, poetize-im-ui]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.19.0
+          cache: npm
+          cache-dependency-path: ${{ matrix.project }}/package-lock.json
+      - name: Test and build ${{ matrix.project }}
+        working-directory: ${{ matrix.project }}
+        run: |
+          npm ci --include=dev
+          npm test
+          npm run lint
+          npm run build
+
+  backend:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Test and package backend
+        working-directory: poetize-server
+        run: mvn --batch-mode --no-transfer-progress package
