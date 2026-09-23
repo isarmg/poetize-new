@@ -1,23 +1,32 @@
 # Poetize Linux x86-64 部署包
 
-此压缩包包含后端可执行 JAR、博客/后台前端、IM 前端、数据库初始化 SQL，以及 Linux 启动和部署示例。
+此包包含 Rust 服务程序和前台、管理后台静态文件。数据库表结构已编入服务程序。
 
-## 运行要求
+## 初始化
 
-- Linux x86-64
-- Java 25
-- MySQL 8 或兼容版本
-- Nginx（用于托管前端并代理 API/WebSocket）
+需要 Linux x86-64 和 HTTPS 反向代理。解压后进入包目录，再创建仅站点用户可访问的数据目录：
 
-## 安装
+```bash
+install -d -m 700 /var/lib/poetize /var/lib/poetize/media
+read -rs -p '管理员密码: ' POETIZE_PASSWORD; printf '\n'
+printf '%s\n' "$POETIZE_PASSWORD" | ./bin/poetize-rs init \
+  --database /var/lib/poetize/site.sqlite --username admin
+unset POETIZE_PASSWORD
+./bin/poetize-rs doctor --database /var/lib/poetize/site.sqlite
+```
 
-1. 将整个目录放到 `/opt/poetize`。
-2. 创建 MySQL 用户并确保它有权创建或访问 `poetize` 数据库。
-3. 将 `config/poetize.env.example` 复制为 `/etc/poetize/poetize.env`，修改数据库密码和初始管理员密码。初始管理员密码至少 8 位，并同时包含字母和数字。
-4. 直接运行 `POETIZE_ENV_FILE=/etc/poetize/poetize.env ./bin/poetize-server` 验证后端。
-5. 按需安装 `config/poetize.service` 到 `/etc/systemd/system/`。
-6. 为域名申请 TLS 证书，将 `config/nginx.conf.example` 中的 `example.com` 和证书路径替换为实际值，再安装到 Nginx 的站点配置目录。不要在生产环境去掉 HTTPS：客户端中的 AES 只是协议编码，不能代替 TLS。
+`init` 仅能操作尚不存在的数据库。运行服务的用户需要对数据库、媒体目录有读写权限；数据目录与媒体目录的权限必须为 `0700`，数据库文件必须为 `0600`。
 
-后端 HTTP 和 WebSocket 默认只监听 `127.0.0.1`，供同机 Nginx 代理。如果确实采用跨主机反向代理，可分别设置 `SERVER_ADDRESS` 和 `IM_BIND_ADDRESS`，同时必须用防火墙仅允许受信代理主机访问 8081/9324 端口。
+## 启动
 
-数据库为空时，后端会读取包内的 `sql/poetry.sql` 完成初始化。不要把真实密码提交到 Git。
+```bash
+./bin/poetize-rs serve \
+  --database /var/lib/poetize/site.sqlite \
+  --media /var/lib/poetize/media \
+  --web "$(pwd)/web" \
+  --bind 127.0.0.1:8081
+```
+
+让 HTTPS 反向代理将所有路径（包括 `/api/v2/` 和 WebSocket）转发至 `127.0.0.1:8081`。前台位于 `/`，管理后台位于 `/admin`。定期备份 SQLite 数据库与媒体目录。
+
+旧版 Java/MySQL 数据不会自动转换为 SQLite；升级前请保留旧版数据和部署包。

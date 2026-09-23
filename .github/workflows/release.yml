@@ -3,62 +3,60 @@ name: Release Linux x86_64
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 permissions:
   contents: write
 
 jobs:
   release:
-    name: Build and publish
+    name: Verify, package and publish
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
-
+    timeout-minutes: 60
     steps:
       - name: Checkout source
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
-          node-version: 24.19.0
+          node-version: '26.7.0'
           cache: npm
-          cache-dependency-path: |
-            poetize-ui/package-lock.json
-            poetize-im-ui/package-lock.json
+          cache-dependency-path: poetize-web/package-lock.json
 
-      - name: Build blog and admin UI
-        working-directory: poetize-ui
-        run: |
-          npm ci --include=dev
-          npm test
-          npm run lint
-          npm run build
-
-      - name: Build IM UI
-        working-directory: poetize-im-ui
-        run: |
-          npm ci --include=dev
-          npm test
-          npm run lint
-          npm run build
-
-      - name: Set up Java
-        uses: actions/setup-java@v5
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          distribution: temurin
-          java-version: "25"
-          cache: maven
+          toolchain: 1.98.0
+          components: clippy, rustfmt
 
-      - name: Build backend
-        working-directory: poetize-server
-        run: mvn --batch-mode --no-transfer-progress package
+      - name: Build web
+        working-directory: poetize-web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Verify and build server
+        working-directory: poetize-rs
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
+          cargo build --locked
+          cargo build --locked --release
+
+      - name: Install Chromium
+        working-directory: poetize-web
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end smoke test
+        run: bash poetize-rs/scripts/smoke.sh
 
       - name: Package Linux x86_64 distribution
-        run: ./scripts/package-linux-x86_64.sh "${GITHUB_REF_NAME}"
+        run: bash scripts/package-linux-x86_64.sh "${GITHUB_REF_NAME}"
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: poetize-${{ github.ref_name }}-linux-x86_64
           path: |
