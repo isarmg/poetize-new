@@ -1,0 +1,55 @@
+[package]
+name = "xocs"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+build = "build.rs"
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+axum = "0.8"
+chrono = { version = "0.4", features = ["serde", "clock"] }
+clap = { version = "4", features = ["derive", "env"] }
+hex = "0.4"
+sha2 = "0.11"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "=0.9.0", default-features = false, features = ["sqlite-bundled", "runtime-tokio", "chrono", "json", "derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "fs", "sync"] }
+tower-http = { version = "0.6", features = ["fs", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tempfile = "3"
+xcss-admin-auth = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-admin-axum = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-admin-core = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-admin-sqlite = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-error = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-contracts = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-secure-http = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-schema-identity = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-web-assets = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-state-file = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-fs-safety = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-server-runtime = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-config = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-log = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0", features=["tracing"] }
+xcss-sqlite = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-server-cli = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+
+[build-dependencies]
+xcss-admin-sqlite = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-web-assets = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-schema-identity = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+xcss-sqlite = { git = "https://github.com/isarmg/xcss.git", rev = "d58b9ef0822984ee0d29fb8b8139cfd2787374fb", version = "=1.0.0" }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+
+[lints.rust]
+unsafe_code = "deny"
+
+[workspace]
+resolver = "3"

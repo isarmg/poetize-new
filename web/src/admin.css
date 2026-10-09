@@ -1,0 +1,66 @@
+/* Product layout uses the same Foundation surfaces and controls as the other Servers. */
+.xocs-admin-app { display: contents; }
+.xocs-admin-app .xocs-site-link {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; color: var(--xcss-text-primary); border-radius: var(--xcss-radius-sm);
+}
+.xocs-admin-app .xocs-site-link svg { width: 1em; height: 1em; }
+.xocs-admin-workspace .xcss-page-header { padding: 0; align-items: center; }
+.xocs-admin-workspace .xcss-page-header h1 { margin: 0; font-size: 1.25rem; line-height: 1.5; font-weight: 600; }
+.xocs-admin-workspace .xcss-page-header p { margin: .5rem 0 0; color: var(--xcss-block-muted); }
+.xocs-admin-workspace .xcss-actions { justify-content: flex-start; gap: 8px 16px; margin: 0; }
+.xocs-admin-workspace .xcss-form-field { min-width: 0; margin: 0; gap: 8px; }
+.xocs-admin-workspace :is(.xcss-input, textarea, input[type=file]) { min-width: 0; max-width: 100%; }
+.xocs-admin-workspace .editor-form {
+  display: grid; gap: 16px; max-width: none; min-width: 0; padding: 16px;
+  border: 0; border-radius: var(--xcss-radius-md); box-shadow: none;
+  background: var(--xcss-bg-panel); color: var(--xcss-text-primary);
+}
+.xocs-admin-workspace .editor-form > :is(h2, p) { margin: 0; }
+.xocs-admin-workspace .editor-form h2 { font-size: 1rem; font-weight: 600; }
+.xocs-admin-workspace .editor-form .editor-form { padding: 0; }
+.xocs-admin-workspace .inline-form {
+  display: flex; flex-wrap: wrap; align-items: end; gap: 16px;
+  min-width: 0; padding: 16px; border-radius: var(--xcss-radius-md); background: var(--xcss-bg-panel);
+}
+.xocs-admin-workspace .inline-form > .xcss-form-field { flex: 1 1 15rem; }
+.xocs-admin-workspace .inline-form > .xcss-button { align-self: end; }
+.xocs-admin-workspace .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; }
+.xocs-admin-workspace .check-row { gap: 8px 24px; }
+.xocs-admin-workspace label:has(> input[type=checkbox]) { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+.xocs-admin-workspace input[type=checkbox] { width: 16px; height: 16px; flex-shrink: 0; margin: 0; accent-color: var(--xcss-action-primary); }
+.xocs-admin-workspace textarea { min-height: 110px; resize: vertical; }
+.xocs-admin-workspace .editor-textarea { min-height: 320px; }
+.xocs-admin-workspace input[type=file] { width: 100%; box-sizing: border-box; font: inherit; }
+.xocs-admin-workspace .xcss-table { font-size: .9375rem; }
+.xocs-admin-workspace .xcss-table th { white-space: nowrap; }
+.xocs-admin-workspace .xcss-table td { overflow-wrap: anywhere; }
+.xocs-admin-workspace .xcss-table td .xcss-actions { flex-wrap: nowrap; }
+.xocs-admin-workspace .xcss-table .comment-cell { max-width: 34rem; }
+.xocs-admin-workspace .xcss-table-scroll { margin: 0; }
+.xocs-admin-workspace .muted { color: var(--xcss-block-muted); }
+.xocs-admin-workspace .badge {
+  padding: 0; border-radius: 0; background: transparent; color: var(--xcss-text-primary); font-weight: 400;
+}
+.xocs-admin-workspace .pager { justify-content: flex-start; gap: 8px 24px; margin: 0; padding: 0; color: var(--xcss-block-muted); }
+.xocs-admin-workspace .pager .xcss-button {
+  padding: 0; min-width: 44px; border-radius: 0; background: transparent; color: var(--xcss-text-link);
+}
+.xocs-admin-workspace .xocs-dashboard-sections {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;
+}
+.xocs-dashboard-sections h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+.xocs-dashboard-sections nav { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.xocs-dashboard-sections a { display: inline-flex; align-items: center; min-height: 44px; color: var(--xcss-text-link); text-decoration: none; }
+.xocs-dashboard-sections a:hover { text-decoration: underline; }
+.xocs-admin-workspace .xocs-settings-form { display: grid; gap: 16px; }
+.xocs-admin-workspace .xocs-settings-form h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+.xocs-admin-workspace .xocs-fieldset { display: grid; gap: 16px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.xocs-admin-workspace .xocs-field-help { margin: 0; font-size: .875rem; line-height: 1.6; color: var(--xcss-block-muted); }
+.xocs-admin-workspace .editor-markdown-preview { background: var(--xcss-bg-page); color: var(--xcss-text-primary); border-color: var(--xcss-block-border); }
+.xocs-admin-workspace .editor-markdown-preview :is(pre, code) { background: var(--xcss-bg-panel); color: var(--xcss-text-primary); }
+@media (max-width: 48rem) {
+  .xocs-admin-workspace .xocs-dashboard-sections,
+  .xocs-admin-workspace .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .xocs-admin-workspace .inline-form > .xcss-form-field { flex-basis: 100%; }
+}
