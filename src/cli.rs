@@ -316,7 +316,7 @@ async fn execute(cli: Cli, log_layer: &xcss::log::XcssStructuredLayer) -> anyhow
                     xcss::server_runtime::ProductDescriptor {
                         id: PRODUCT_ID.into(),
                         version: env!("CARGO_PKG_VERSION").into(),
-                        xcss_revision: env!("XCSS_REVISION").into(),
+                        common_revision: env!("XCSS_REVISION").into(),
                         profile: "public-content".into(),
                         capabilities: vec!["admin-persistent".into()],
                     },

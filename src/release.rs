@@ -15,8 +15,8 @@ pub fn state_contract_bytes() -> anyhow::Result<Vec<u8>> {
             sha256: schema.schema_sha256,
         }),
         maintenance_locks: vec![
-            ".xcss-instance.lock".into(),
-            ".xcss-maintenance.lock".into(),
+            ".state-instance.lock".into(),
+            ".state-maintenance.lock".into(),
         ],
         resources: vec![
             StateResource {

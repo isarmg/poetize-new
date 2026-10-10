@@ -187,8 +187,8 @@ pub(crate) async fn validate_database(pool: &SqlitePool) -> anyhow::Result<()> {
         "resource",
         "im_chat_user_message",
         "im_chat_user_group_message",
-        "_xcss_administrators",
-        "_xcss_admin_sessions",
+        "_common_administrators",
+        "_common_admin_sessions",
     ] {
         if !names.iter().any(|name| name == table) {
             bail!("missing required table: {table}");

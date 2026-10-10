@@ -56,7 +56,7 @@ target/x86_64-unknown-linux-gnu/release/xocs --data-dir /var/lib/xocs run \
 
 当前数据库必须携带 `xocs-db-v1` 身份且实际 SQL 结构与编译指纹一致。运行只接受当前格式，旧数据明确拒绝且不改写。初始化先完成独立暂存数据库，再以不覆盖已有文件的方式发布。
 
-Rust 公共依赖固定官方 xcss 仓库的版本 `=1.0.0` 与完整 revision `9fb5b3f8f20762cb93050bc52ea81a36ac0dc914`；一个 @xcss/web 包固定同版 `v1.0.0` 官方发行 URL 和真实归档的 lockfile integrity，不读取相邻工作区。Xocs 软件版本为 `1.0.0`，数据库格式身份仍为 `xocs-db-v1`，软件版本与数据格式版本分别管理。
+Rust 公共依赖固定官方 xcss 仓库的版本 `=1.0.0` 与完整 revision `9637806055b7d7a18be206f0b83e9b22b73902db`；一个 @xcss/web 包固定同版 `v1.0.0` 官方发行 URL 和真实归档的 lockfile integrity，不读取相邻工作区。Xocs 软件版本为 `1.0.0`，数据库格式身份仍为 `xocs-db-v1`，软件版本与数据格式版本分别管理。
 
 根目录是唯一 Cargo workspace 与 lock。共同 builder 验证 Linux AMD64 GNU target、真实源码 revision 和实际二进制资源清单，报告真实输出路径；默认正式输出为 `target/x86_64-unknown-linux-gnu/release/xocs`。独立缓存通过 `CARGO_TARGET_DIR` 选择，打包脚本以 `XOCS_RELEASE_CARGO_TARGET_DIR` 指向同一绝对缓存根。正式包要求干净源码、annotated `v1.0.0` 精确指向 HEAD 和匹配该 HEAD 的二进制身份，不允许 unbound 程序打包。
 
@@ -83,6 +83,14 @@ bash scripts/smoke.sh
 
 版本改动见 [1.0.0 说明](docs/releases/1.0.0.md)，发行物见 [GitHub Releases](https://github.com/isarmg/xocs/releases)。发布流程验证固定依赖、Rust、双浏览器界面及正式二进制的业务烟测后，生成 Linux x86_64 归档和 SHA-256 校验文件。本次重建仅保留 `v1.0.0` 标签与发行物。
 
-当前发布版本：**1.0.0**。参见 [1.0.0 发布说明](docs/releases/1.0.0.md)和[项目命名](docs/naming.md)。
+当前发布版本：**1.0.0**。参见 [1.0.0 发布说明](docs/releases/1.0.0.md)。
 
 公共支撑的职责、单体依赖、平台边界与验证方法见[公共支撑说明](docs/common-support.md)。
+
+## 当前中立接口与旧版数据处理
+
+当前版本只使用 `.state-instance.lock`、`.state-maintenance.lock`、`.state-maintenance-pending.json` 和 `.state-atomic-` 临时文件前缀；离线升级工具采用 `.release-upgrade` 工作目录。服务身份头为 `x-service`，健康状态中的公共源码修订字段为 `common_revision`。管理会话采用 `__Host-admin-xocs-session`，显式开发模式采用 `admin-xocs-session`；生产 Cookie 的 Secure、HttpOnly、SameSite、Path 和 CSRF 约束继续生效。资源清单格式为 `web-assets-v1`，公共数据库内部表及索引采用 `_common_` 前缀。
+
+这些接口没有旧名称别名或旧版兼容分支。旧版升级前，先按本文的停服步骤停止服务及全部维护工具；确认全部进程退出后，完整备份配置、SQLite 数据库及其 WAL/SHM、业务文件和必要的私有凭据。备份包含敏感数据，应保留原有访问权限并离线保存。
+
+保留旧数据目录，按当前安装步骤配置新的私有数据目录，执行显式 `init` 初始化，随后运行 `config validate`，再启动服务并登录管理页面；本产品无需配对客户端。旧配置应人工审阅后填写当前字段，不能整体覆盖新目录。旧业务数据需要另行处理；当前版本不提供自动迁移。不得让旧、新版本同时写同一目录，不得通过删锁文件或修改数据库 metadata 强制启动；当前结构指纹包含实际表名、索引名和 SQL，仅改名称不能证明数据符合当前合同。
