@@ -19,10 +19,11 @@ const boundaries = {
 const { CommentReplies } = await originalModule(new URL('../src/PublicComments.tsx', import.meta.url), boundaries, ['CommentReplies']);
 const { PublicExtras } = await originalModule(new URL('../src/PublicExtras.tsx', import.meta.url), boundaries);
 const { LovePage } = await originalModule(new URL('../src/LovePage.tsx', import.meta.url), boundaries);
-const { LabelsPage } = await originalModule(new URL('../src/AdminExtras.tsx', import.meta.url), { ...boundaries, '@xcss/web/admin-shell':'export const useAdminApplication=()=>globalThis.__WORKFLOW_APP;', './AdminLayout':'export const adminGroups=[];' });
+const { LabelsPage, SitePage } = await originalModule(new URL('../src/AdminExtras.tsx', import.meta.url), { ...boundaries, '@xcss/web/admin-shell':'export const useAdminApplication=()=>globalThis.__WORKFLOW_APP;', './AdminLayout':'export const adminGroups=[];' });
+const { HomeSectionsPage } = await originalModule(new URL('../src/HomeSections.tsx', import.meta.url), { ...boundaries, '@xcss/web/admin-shell':'export const useAdminApplication=()=>globalThis.__WORKFLOW_APP;' });
 const beforeImportWindow = globalThis.window;
 globalThis.window = { location: { pathname: '/admin' } };
-const { ArticleManager, ArticleEditor } = await originalModule(new URL('../src/main.tsx', import.meta.url), {
+const { ArticleManager, ArticleEditor, ArticleNewsEditor, CategoryManager } = await originalModule(new URL('../src/main.tsx', import.meta.url), {
   ...boundaries,
   '@xcss/web/admin-shell': 'export const useAdminApplication=()=>globalThis.__WORKFLOW_APP;export const createXcssAdminApplication=()=>()=>null;export const InstanceHeaderActions=()=>null;export const AccountPage=()=>null;',
   'react-dom/client': 'export const createRoot=()=>({render(){}});',
@@ -36,7 +37,7 @@ const { ArticleManager, ArticleEditor } = await originalModule(new URL('../src/m
   'markdown-it': 'export default class MarkdownIt {render(value){return value;}}',
   'dompurify': 'export default {sanitize:value=>value};',
   ...Object.fromEntries(['@xcss/web/design-tokens/tokens.css','@xcss/web/design-tokens/tokens.dark.css','@xcss/web/admin-ui/styles.css','@xcss/web/design-tokens/reset.css','@xcss/web/design-tokens/accessibility.css','@xcss/web/web-fonts/fonts.css','./style.css','./public-original.css','./public-layout.css','./admin.css'].map(path=>[path,''])),
-}, ['ArticleManager', 'ArticleEditor']);
+}, ['ArticleManager', 'ArticleEditor', 'ArticleNewsEditor', 'CategoryManager']);
 globalThis.window = beforeImportWindow;
 
 const page = (items, total, number = 1, size = 5) => ({ items, total, page: number, size });
@@ -196,4 +197,79 @@ test('article identity changes discard stale initial loads and pending uploads',
   current.resolve({...article,id:2,article_title:'Current title'});await settle(host);assert.equal(walk(host.tree,node=>typeof node.type==='function'&&node.type.name==='TextField')[0].props.value,'Current title');
   upload(host);const oldUpload=requests.at(-1);host.props={id:3};host.render();assert.equal(oldUpload.options.signal.aborted,true);const next=requests.at(-1);oldUpload.resolve({path:'/media/obsolete.png'});await settle(host);assert.equal(walk(host.tree,node=>node.type==='form').length,0);
   next.resolve({...article,id:3,article_cover:'/media/third.png'});await settle(host);save(host);assert.match(requests.at(-1).url,/\/articles\/3$/);assert.equal(JSON.parse(requests.at(-1).options.body).article_cover,'/media/third.png');
+});
+
+
+// Native disabled fieldsets lock all descendant form controls, including row actions.
+function controls(host) {
+  const result=[];
+  function visit(node,disabled=false){
+    if(Array.isArray(node)){node.forEach(item=>visit(item,disabled));return;}
+    if(!node||typeof node!=='object')return;
+    const locked=disabled||(node.type==='fieldset'&&node.props.disabled===true);
+    if(['input','textarea','select','button'].includes(node.type))result.push({node,disabled:locked||node.props.disabled===true});
+    visit(node.props?.children,locked);
+  }
+  visit(expand(host.tree));return result;
+}
+const fields=(host,name)=>walk(host.tree,node=>typeof node.type==='function'&&node.type.name===name);
+const categoryFixture={id:1,sort_name:'Category A',sort_description:null,priority:0,article_count:0};
+const labelFixture={id:1,sort_id:1,label_name:'Tag A',label_description:null};
+
+test('article updates admit one pending publish, lock its draft, and preserve it for retry',async context=>{
+  const {host,requests,notifications}=setup(context,ArticleNewsEditor,{id:1});requests[0].resolve([]);await settle(host);
+  walk(host.tree,node=>node.type==='textarea')[0].props.onChange({target:{value:'First update'}});
+  fields(host,'TextField')[0].props.onChange({target:{value:'2026-10-10T10:30'}});host.render();
+  const before=requests.length;save(host);save(host);host.render();save(host);
+  assert.equal(requests.length,before+1);assert.ok(controls(host).every(item=>item.disabled));
+  assert.deepEqual(JSON.parse(requests.at(-1).options.body),{content:'First update',create_time:'2026-10-10T10:30'});
+  requests.at(-1).reject(new Error('ordinary save failure'));await settle(host);
+  assert.ok(controls(host).every(item=>!item.disabled));assert.equal(walk(host.tree,node=>node.type==='textarea')[0].props.value,'First update');
+  assert.equal(fields(host,'TextField')[0].props.value,'2026-10-10T10:30');
+  save(host);requests.at(-1).resolve({id:1,content:'First update',create_time:'2026-10-10 10:30:00'});await settle(host);
+  assert.equal(walk(host.tree,node=>node.type==='textarea')[0].props.value,'');assert.equal(fields(host,'TextField')[0].props.value,'');
+  assert.deepEqual(notifications,['Article update published']);assert.match(text(host),/First update/);
+});
+
+for(const [Component,kind] of [[CategoryManager,'category'],[LabelsPage,'label']]){
+  test(`${kind} create and edit lock the form and row actions, prevent duplicate posts, and retry`,async context=>{
+    const {host,requests,notifications}=setup(context,Component);
+    if(kind==='category')requests[0].resolve([categoryFixture]);else{requests[0].resolve([labelFixture]);requests[1].resolve([categoryFixture]);}await settle(host);
+    fields(host,'TextField')[0].props.onChange({target:{value:'New item'}});
+    if(kind==='label')fields(host,'Select')[0].props.onChange({target:{value:'1'}});host.render();
+    const before=requests.length;save(host);save(host);host.render();save(host);
+    assert.equal(requests.length,before+1);assert.equal(requests.at(-1).options.method,'POST');assert.ok(controls(host).every(item=>item.disabled));
+    requests.at(-1).reject(new Error('ordinary save failure'));await settle(host);
+    assert.ok(controls(host).every(item=>!item.disabled));assert.equal(fields(host,'TextField')[0].props.value,'New item');
+    save(host);requests.at(-1).resolve(kind==='category'?{...categoryFixture,id:2,sort_name:'New item'}:{...labelFixture,id:2,label_name:'New item'});await settle(host);
+    assert.equal(fields(host,'TextField')[0].props.value,'');assert.equal(notifications.length,1);
+    button(host,'Edit').props.onClick();host.render();save(host);host.render();
+    assert.equal(requests.at(-1).options.method,'PUT');assert.ok(controls(host).every(item=>item.disabled));
+    requests.at(-1).reject(new Error('ordinary edit failure'));await settle(host);
+    assert.equal(fields(host,'TextField')[0].props.value,kind==='category'?'Category A':'Tag A');assert.ok(button(host,'Cancel editing'));
+  });
+}
+
+test('article saving locks editable content and failure restores the submitted draft for correction',async context=>{
+  const {host,requests}=await editor(context);save(host);host.render();assert.ok(controls(host).every(item=>item.disabled));
+  requests.at(-1).reject(new Error('ordinary save failure'));await settle(host);
+  assert.ok(controls(host).every(item=>!item.disabled));assert.equal(walk(host.tree,node=>node.type==='textarea')[0].props.value,'Original text');
+  walk(host.tree,node=>node.type==='textarea')[0].props.onChange({target:{value:'Corrected final text'}});host.render();save(host);
+  assert.equal(JSON.parse(requests.at(-1).options.body).article_content,'Corrected final text');requests.at(-1).resolve(article);await settle(host);assert.equal(window.location.hash,'articles');
+});
+
+test('home-section saves lock add, edit, reorder, and delete until success or failure',async context=>{
+  const rows=[{id:1,title:'Latest',kind:'latest',sort_id:null,priority:0,enabled:true},{id:2,title:'Category A',kind:'category',sort_id:1,priority:10,enabled:true}];
+  const {host,requests}=setup(context,HomeSectionsPage);requests[0].resolve(rows);requests[1].resolve([categoryFixture]);await settle(host);
+  button(host,'Save sections').props.onClick();host.render();assert.ok(controls(host).every(item=>item.disabled));
+  requests.at(-1).reject(new Error('ordinary save failure'));await settle(host);assert.equal(button(host,'Add category section').props.disabled,false);assert.equal(fields(host,'TextField').length,2);
+  button(host,'Add category section').props.onClick();host.render();assert.equal(fields(host,'TextField').length,3);button(host,'Save sections').props.onClick();host.render();
+  const payload=JSON.parse(requests.at(-1).options.body);assert.equal(payload.length,3);requests.at(-1).resolve(payload.map((row,index)=>({...row,id:index+1})));await settle(host);
+  assert.equal(fields(host,'TextField').length,3);assert.equal(button(host,'Save sections').props.disabled,false);
+});
+
+test('site settings retain the existing pending lock and allow correction after failed save',async context=>{
+  const {host,requests}=setup(context,SitePage);requests[0].resolve({web_name:'Site A'});await settle(host);save(host);host.render();assert.ok(controls(host).every(item=>item.disabled));
+  requests.at(-1).reject(new Error('ordinary save failure'));await settle(host);assert.ok(controls(host).every(item=>!item.disabled));assert.equal(fields(host,'TextField')[0].props.value,'Site A');
+  fields(host,'TextField')[0].props.onChange({target:{value:'Site B'}});host.render();save(host);requests.at(-1).resolve({web_name:'Site B'});await settle(host);assert.equal(fields(host,'TextField')[0].props.value,'Site B');
 });
