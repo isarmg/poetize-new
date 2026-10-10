@@ -27,14 +27,14 @@ jobs:
         run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt,clippy
       - name: Verify pinned xcss contracts
         run: |
-          foundation_input="$RUNNER_TEMP/xocs-foundation-input"
-          git init --quiet "$foundation_input"
-          git -C "$foundation_input" remote add origin https://github.com/isarmg/xcss.git
-          git -C "$foundation_input" fetch --depth=1 origin 020b40b1185a604ced7a01230781a3eadffe64c2
-          git -C "$foundation_input" checkout --quiet --detach FETCH_HEAD
-          test "$(git -C "$foundation_input" rev-parse HEAD)" = 020b40b1185a604ced7a01230781a3eadffe64c2
-          python3 "$foundation_input/scripts/xcss-conformance.py" verify-manifest --product-root "$GITHUB_WORKSPACE"
-          python3 "$foundation_input/scripts/xcss-conformance.py" verify-source --product-root "$GITHUB_WORKSPACE"
+          xcss_input="$RUNNER_TEMP/xocs-xcss-input"
+          git init --quiet "$xcss_input"
+          git -C "$xcss_input" remote add origin https://github.com/isarmg/xcss.git
+          git -C "$xcss_input" fetch --depth=1 origin 9fb5b3f8f20762cb93050bc52ea81a36ac0dc914
+          git -C "$xcss_input" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$xcss_input" rev-parse HEAD)" = 9fb5b3f8f20762cb93050bc52ea81a36ac0dc914
+          python3 "$xcss_input/scripts/xcss-conformance.py" verify-manifest --product-root "$GITHUB_WORKSPACE"
+          python3 "$xcss_input/scripts/xcss-conformance.py" verify-source --product-root "$GITHUB_WORKSPACE"
 
       - name: Build web
         working-directory: web
