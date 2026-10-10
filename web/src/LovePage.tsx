@@ -45,7 +45,8 @@ export function LovePage() {
   const [allPhotoTotal, setAllPhotoTotal] = useState<number | null>(null);
   const [photoBusy, setPhotoBusy] = useState(true);
   const [photoFailure, setPhotoFailure] = useState('');
-  const [photoVersion, setPhotoVersion] = useState(0);
+  const [photoVersion, setPhotoVersion] = useState(0), [photoAttempt, setPhotoAttempt] = useState(0);
+  const photoLoading = useRef(false), loadedPhotoPage = useRef(0);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [familyOffset, setFamilyOffset] = useState(0);
   const content = useRef<HTMLDivElement>(null);
@@ -80,20 +81,21 @@ export function LovePage() {
     return () => controller.abort();
   }, [photoVersion]);
   useEffect(() => {
-    if (tab !== 'photos') return;
-    const controller = new AbortController(); setPhotoBusy(true); setPhotoFailure('');
+    if (tab !== 'photos') { photoLoading.current = false; return; }
+    const controller = new AbortController(); photoLoading.current = true; setPhotoBusy(true); setPhotoFailure('');
     const filter = classify ? `&classify=${encodeURIComponent(classify)}` : '';
     void request(`/api/v1/links/page?kind=lovePhoto&page=${photoPage}&size=12${filter}`, isLinkPage, { signal: controller.signal })
       .then(value => {
         if (controller.signal.aborted) return;
+        loadedPhotoPage.current = photoPage;
         setPhotoTotal(value.total);
         if (!classify) setAllPhotoTotal(value.total);
         setPhotos(current => photoPage === 1 ? value.items : [...current, ...value.items.filter(item => !current.some(existing => existing.id === item.id))]);
       })
       .catch(reason => { if (!controller.signal.aborted) setPhotoFailure(publicErrorMessage(reason, t('相册加载失败', 'Unable to load photos'))); })
-      .finally(() => { if (!controller.signal.aborted) setPhotoBusy(false); });
+      .finally(() => { if (!controller.signal.aborted) { photoLoading.current = false; setPhotoBusy(false); } });
     return () => controller.abort();
-  }, [tab, classify, photoPage, photoVersion]);
+  }, [tab, classify, photoPage, photoVersion, photoAttempt]);
 
   const love = families?.find(item => item.id === selected) || families?.[0];
   const hisName = love?.man_name || t('他', 'Him'), herName = love?.woman_name || t('她', 'Her');
@@ -108,7 +110,8 @@ export function LovePage() {
     { id: 'wishes', label: t('祝福板', 'Wishes'), icon: '💌', description: t('收下朋友的祝福', 'Wishes from friends') },
     { id: 'families', label: t('表白墙', 'Love wall'), icon: '🚗', description: t('遇见更多人的故事', 'Meet other couples') },
   ];
-  function chooseClass(value: string) { setClassify(value); setPhotoPage(1); setPhotos([]); setPhotoTotal(null); }
+  function chooseClass(value: string) { if (value === classify) return; loadedPhotoPage.current = 0; setClassify(value); setPhotoPage(1); setPhotos([]); setPhotoTotal(null); }
+  function loadMorePhotos() { if (photoLoading.current) return; photoLoading.current = true; setPhotoBusy(true); setPhotoPage(loadedPhotoPage.current + 1); setPhotoAttempt(value => value + 1); }
   function showTab(value: Tab) { setTab(value); content.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }); }
 
   return <PublicChrome plainHeader title={t('恋爱笔记', 'Love journal')}>
@@ -154,7 +157,7 @@ export function LovePage() {
               <div className="original-tag-panel love-photo-filters" aria-label={t('相册分类', 'Photo categories')}><button type="button" aria-pressed={!classify} className={!classify ? 'active' : ''} onClick={() => chooseClass('')}>{t('全部', 'All')} <small>{allPhotoTotal ?? (classes.length ? classes.reduce((sum, item) => sum + item.count, 0) : null)}</small></button>{classes.map(item => <button type="button" key={item.classify} aria-pressed={classify === item.classify} className={classify === item.classify ? 'active' : ''} onClick={() => chooseClass(item.classify)}>{item.classify} <small>{item.count}</small></button>)}</div>
               {(photoFailure || classFailure) && <Feedback message={photoFailure || classFailure} retry={() => setPhotoVersion(value => value + 1)} />}
               {photoBusy && !photos.length ? <p className="public-loading" role="status">{t('正在加载照片…', 'Loading photos…')}</p> : (photos.length > 0 || !photoFailure) && <PhotoGrid items={photos} onPreview={setLightbox} />}
-              {photoTotal !== null && photos.length < photoTotal && <button type="button" className="travel-more" disabled={photoBusy} onClick={() => setPhotoPage(value => value + 1)}>{photoBusy ? t('加载中…', 'Loading…') : t('加载更多照片', 'Load more photos')}</button>}
+              {photoTotal !== null && photos.length < photoTotal && <button type="button" className="travel-more" disabled={photoBusy} onClick={loadMorePhotos}>{photoBusy ? t('加载中…', 'Loading…') : t('加载更多照片', 'Load more photos')}</button>}
             </>}
             {tab === 'notes' && <>
               <div className="love-section-heading"><div><h2>{t('点点滴滴', 'Moments')}</h2><p>{t('记录那些平常又特别的小事。', 'A place for the little things that make our days.')}</p></div><a href="/jotting">{t('浏览更多记录', 'Browse more entries')} <span aria-hidden="true">↗</span></a></div>

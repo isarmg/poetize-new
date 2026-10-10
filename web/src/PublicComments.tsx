@@ -23,19 +23,26 @@ function CommentReplies({ root, refresh, kind, onReply }: { root: PublicComment;
   const [result, setResult] = useState<Page<PublicComment> | null>(null);
   const [items, setItems] = useState<PublicComment[]>([]);
   const [failure, setFailure] = useState('');
-  useEffect(() => setPage(1), [root.id, refresh]);
+  const [busy, setBusy] = useState(false), [attempt, setAttempt] = useState(0);
+  const loading = useRef(false), loadedPage = useRef(0);
+  useEffect(() => { loadedPage.current = 0; setPage(1); setItems([]); setResult(null); }, [root.id, root.reply_count, refresh, kind]);
   useEffect(() => {
-    if (!root.reply_count) { setItems([]); setResult(null); return; }
-    const controller = new AbortController(); setFailure('');
+    if (!root.reply_count) { loading.current = false; setBusy(false); setItems([]); setResult(null); return; }
+    const controller = new AbortController(); loading.current = true; setBusy(true); setFailure('');
     void request(`${commentPath(kind)}/${root.id}/replies?page=${page}&size=5`, isPublicCommentPage, { signal: controller.signal })
-      .then(value => { if (!controller.signal.aborted) { setResult(value); setItems(current => page === 1 ? value.items : [...current, ...value.items.filter(item => !current.some(existing => existing.id === item.id))]); } })
-      .catch(reason => { if (!controller.signal.aborted) setFailure(publicErrorMessage(reason, t('回复加载失败', 'Unable to load replies'))); });
+      .then(value => { if (!controller.signal.aborted) { loadedPage.current = page; setResult(value); setItems(current => page === 1 ? value.items : [...current, ...value.items.filter(item => !current.some(existing => existing.id === item.id))]); } })
+      .catch(reason => { if (!controller.signal.aborted) setFailure(publicErrorMessage(reason, t('回复加载失败', 'Unable to load replies'))); })
+      .finally(() => { if (!controller.signal.aborted) { loading.current = false; setBusy(false); } });
     return () => controller.abort();
-  }, [root.id, root.reply_count, page, refresh, kind]);
+  }, [root.id, root.reply_count, page, refresh, kind, attempt]);
+  function loadMore() {
+    if (loading.current) return;
+    loading.current = true; setBusy(true); setPage(loadedPage.current + 1); setAttempt(value => value + 1);
+  }
   if (!root.reply_count) return null;
-  return <div className="comment-replies">{failure && <p role="alert">{failure}</p>}
+  return <div className="comment-replies">{failure && <p role="alert">{failure} <button type="button" disabled={busy} onClick={loadMore}>{t('重试', 'Try again')}</button></p>}
     {items.map(item => <CommentEntry key={item.id} item={item} onReply={onReply} />)}
-    {result && items.length < result.total && <button type="button" className="comment-more" onClick={() => setPage(value => value + 1)}>{t('展开剩余 {0} 条回复', 'Show {0} more replies', [result.total - items.length])}</button>}
+    {result && items.length < result.total && <button type="button" className="comment-more" disabled={busy} onClick={loadMore}>{t('展开剩余 {0} 条回复', 'Show {0} more replies', [result.total - items.length])}</button>}
   </div>;
 }
 

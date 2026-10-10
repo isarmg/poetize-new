@@ -114,10 +114,15 @@ pub(super) async fn delete_category(
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> ApiResult<serde_json::Value> {
+    let mut transaction = state
+        .pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(db_error)?;
     let used: i64 =
         sqlx::query_scalar("SELECT COUNT(*) FROM article WHERE sort_id=? AND deleted=0")
             .bind(id)
-            .fetch_one(&state.pool)
+            .fetch_one(&mut *transaction)
             .await
             .map_err(db_error)?;
     if used > 0 {
@@ -125,11 +130,12 @@ pub(super) async fn delete_category(
     }
     let result = sqlx::query("DELETE FROM sort WHERE id=?")
         .bind(id)
-        .execute(&state.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(db_error)?;
     if result.rows_affected() == 0 {
         return Err(absent());
     }
+    transaction.commit().await.map_err(db_error)?;
     Ok(Json(serde_json::json!({"deleted":true})))
 }

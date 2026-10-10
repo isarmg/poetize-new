@@ -18,6 +18,13 @@ export function useRef(value) {
   const host = current, index = host.index++;
   return host.slots[index] ??= { current: value };
 }
+export function useMemo(factory, deps) {
+  const memo = useRef(null);
+  if (!memo.current || !deps || deps.some((dep, index) => !Object.is(dep, memo.current.deps[index])))
+    memo.current = { deps, value: factory() };
+  return memo.current.value;
+}
+export const StrictMode = ({ children }) => children;
 export function useId() { return useRef(`unit-${current.index}`).current; }
 export function useEffect(effect, deps) {
   const host = current, index = host.index++;

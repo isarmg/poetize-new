@@ -93,7 +93,12 @@ function ArticleManager() {
     setBusy(true);
     setFailure('');
     void client.request(`/api/v1/content/articles?page=${page}&size=15`, isArticlePage, {signal: controller.signal})
-      .then(data => { if (!controller.signal.aborted) setResult(data); })
+      .then(data => {
+        if (controller.signal.aborted) return;
+        const lastPage = Math.max(1, Math.ceil(data.total / data.size));
+        if (page > lastPage) { setResult(null); setPage(lastPage); return; }
+        setResult(data);
+      })
       .catch(() => { if (!controller.signal.aborted) setFailure(t("文章加载失败", "Unable to load articles")); })
       .finally(() => { if (!controller.signal.aborted) setBusy(false); });
     return () => controller.abort();
@@ -102,7 +107,7 @@ function ArticleManager() {
     if (!window.confirm(t("确定删除这篇文章？", "Delete this article?"))) return;
     try {
       await client.request(`/api/v1/content/articles/${id}`, isDelete, {method: 'DELETE'});
-      notify(t("文章已删除", "Article deleted")); setRefresh(value => value+1);
+      notify(t("文章已删除", "Article deleted")); setResult(null); setRefresh(value => value+1);
     } catch { setFailure(t("删除失败，请刷新后重试", "Delete failed. Refresh and try again.")); }
   }
   return <section className="xcss-content-stack">
@@ -110,7 +115,7 @@ function ArticleManager() {
     <PageHeader><div><h1>{t("文章管理", "Articles")}</h1><p>{t("管理公开文章与草稿。", "Manage published articles and drafts.")}</p></div></PageHeader>
     {failure && <ErrorState onRetry={() => setRefresh(value => value+1)}>{failure}</ErrorState>}
     {busy && !result ? <LoadingState /> : result?.items.length ? <Table aria-label={t("文章列表", "Article list")}><thead><tr><th>{t("标题", "Title")}</th><th>{t("状态", "Status")}</th><th>{t("浏览", "Views")}</th><th>{t("创建时间", "Created at")}</th><th>{t("操作", "Actions")}</th></tr></thead><tbody>{result.items.map(item => <tr key={item.id}><td><strong>{item.article_title}</strong><small className="muted">#{item.id}</small></td><td><span className={item.view_status ? 'badge success' : 'badge'}>{item.view_status ? t("公开", "Public") : t("加密", "Password protected")}</span></td><td>{item.view_count}</td><td>{item.create_time || '—'}</td><td><div className="xcss-actions"><Button onClick={() => {window.location.hash=`edit/${item.id}`;}}>{t("编辑", "Edit")}</Button><Button className="xcss-danger" onClick={() => void remove(item.id)}>{t("删除", "Delete")}</Button></div></td></tr>)}</tbody></Table> : result&&<EmptyState>{t("还没有文章。点击“新增文章”开始创作。", "No articles yet. Select “Add article” to begin writing.")}</EmptyState>}
-    {result&&result.total>15&&<nav className="pager" aria-label={t("分页", "Pagination")}><Button disabled={busy||page<=1} onClick={() => setPage(value => value-1)}>{t("上一页", "Previous page")}</Button><span>{t("第 {0} 页 · 共 {1} 篇", "Page {0} · {1} articles", [page, result.total])}</span><Button disabled={busy||page*15>=result.total} onClick={() => setPage(value => value+1)}>{t("下一页", "Next page")}</Button></nav>}
+    {result&&(result.total>15||page>1)&&<nav className="pager" aria-label={t("分页", "Pagination")}><Button disabled={busy||page<=1} onClick={() => setPage(value => value-1)}>{t("上一页", "Previous page")}</Button><span>{t("第 {0} 页 · 共 {1} 篇", "Page {0} · {1} articles", [page, result.total])}</span><Button disabled={busy||page*15>=result.total} onClick={() => setPage(value => value+1)}>{t("下一页", "Next page")}</Button></nav>}
   </section>;
 }
 
@@ -123,46 +128,63 @@ function ArticleEditor({id}: {id?: number}) {
   const [saving, setSaving] = useState(false);
   const [preview,setPreview]=useState(false);
   const [uploading,setUploading]=useState(false);
+  const uploadRequest=useRef<AbortController|null>(null),saveRequest=useRef<AbortController|null>(null);
+  useEffect(()=>{setUploading(false);setSaving(false);return()=>{uploadRequest.current?.abort();saveRequest.current?.abort();uploadRequest.current=null;saveRequest.current=null;};},[id]);
   const [failure, setFailure] = useState('');
   const previewHtml=useMemo(()=>DOMPurify.sanitize(markdown.render(article.article_content)),[article.article_content]);
+  const [loadedId,setLoadedId]=useState<number|null|undefined>(id?null:undefined);
+  const [loadFailure,setLoadFailure]=useState(''),[loadAttempt,setLoadAttempt]=useState(0);
+  const articleReady=loadedId===id;
   useEffect(() => {
     const controller = new AbortController();
-    void request('/api/v1/categories', isCategories, {signal: controller.signal}).then(value => {if (!controller.signal.aborted) setCategories(value);}).catch(() => setFailure(t("分类加载失败", "Unable to load categories")));
-    void client.request('/api/v1/content/labels', isEditorLabels, {signal:controller.signal}).then(value => {if (!controller.signal.aborted) setLabels(value);}).catch(() => setFailure(t("标签加载失败", "Unable to load tags")));
-    if (id) void client.request(`/api/v1/content/articles/${id}`, isArticle, {signal: controller.signal}).then(value => {
-      if (!controller.signal.aborted) setArticle({article_title:value.article_title,article_content:value.article_content,article_cover:value.article_cover,video_url:value.video_url,sort_id:value.sort_id,label_id:value.label_id,view_status:Boolean(value.view_status),recommend_status:Boolean(value.recommend_status),comment_status:Boolean(value.comment_status),password:null,tips:value.tips});
-    }).catch(() => setFailure(t("文章加载失败", "Unable to load articles")));
+    void request('/api/v1/categories', isCategories, {signal: controller.signal}).then(value => {if (!controller.signal.aborted) setCategories(value);}).catch(() => {if(!controller.signal.aborted)setFailure(t("分类加载失败", "Unable to load categories"));});
+    void client.request('/api/v1/content/labels', isEditorLabels, {signal:controller.signal}).then(value => {if (!controller.signal.aborted) setLabels(value);}).catch(() => {if(!controller.signal.aborted)setFailure(t("标签加载失败", "Unable to load tags"));});
     return () => controller.abort();
-  }, [client,id]);
+  }, [client]);
+  useEffect(() => {
+    const controller = new AbortController();setLoadFailure('');setFailure('');
+    if (!id) {setArticle(emptyArticle);setLoadedId(undefined);return()=>controller.abort();}
+    setLoadedId(null);
+    void client.request(`/api/v1/content/articles/${id}`, isArticle, {signal: controller.signal}).then(value => {
+      if (controller.signal.aborted)return;
+      setArticle({article_title:value.article_title,article_content:value.article_content,article_cover:value.article_cover,video_url:value.video_url,sort_id:value.sort_id,label_id:value.label_id,view_status:Boolean(value.view_status),recommend_status:Boolean(value.recommend_status),comment_status:Boolean(value.comment_status),password:null,tips:value.tips});setLoadedId(id);
+    }).catch(() => {if(!controller.signal.aborted)setLoadFailure(t("文章加载失败", "Unable to load article"));});
+    return () => controller.abort();
+  }, [client,id,loadAttempt]);
   function change<K extends keyof ArticleInput>(key: K, value: ArticleInput[K]) {setArticle(current => ({...current,[key]:value}));}
   async function uploadPicture(file:File|undefined,target:'cover'|'content'){
-    if(!file)return;
+    if(!articleReady||!file||uploadRequest.current||saveRequest.current)return;
     if(file.size>10*1024*1024||!['image/png','image/jpeg','image/gif','image/webp'].includes(file.type)){setFailure(t("请选择不超过 10 MB 的 PNG、JPEG、GIF 或 WebP 图片", "Choose a PNG, JPEG, GIF, or WebP image up to 10 MB"));return;}
-    setUploading(true);setFailure('');
-    try{const result=await client.request('/api/v1/content/upload',(value):value is {path:string}=>typeof value==='object'&&value!==null&&'path'in value&&typeof value.path==='string',{method:'POST',headers:{'Content-Type':file.type,'X-File-Name':file.name.replace(/[^\x20-\x7e]/g,'_').slice(0,200)},body:file});if(target==='cover')change('article_cover',result.path);else setArticle(current=>({...current,article_content:`${current.article_content}\n\n![${file.name.replace(/[\[\]]/g,'')}](${result.path})\n`}));notify(t("图片已上传", "Image uploaded"));}catch(reason){setFailure(publicErrorMessage(reason, t("图片上传失败", "Image upload failed")));}finally{setUploading(false);}
+    const controller=new AbortController();uploadRequest.current=controller;setUploading(true);setFailure('');
+    try{const result=await client.request('/api/v1/content/upload',(value):value is {path:string}=>typeof value==='object'&&value!==null&&'path'in value&&typeof value.path==='string',{method:'POST',signal:controller.signal,headers:{'Content-Type':file.type,'X-File-Name':file.name.replace(/[^\x20-\x7e]/g,'_').slice(0,200)},body:file});if(controller.signal.aborted||uploadRequest.current!==controller)return;if(target==='cover')change('article_cover',result.path);else setArticle(current=>({...current,article_content:`${current.article_content}\n\n![${file.name.replace(/[\[\]]/g,'')}](${result.path})\n`}));notify(t("图片已上传", "Image uploaded"));}catch(reason){if(!controller.signal.aborted)setFailure(publicErrorMessage(reason, t("图片上传失败", "Image upload failed")));}finally{if(uploadRequest.current===controller){uploadRequest.current=null;setUploading(false);}}
   }
   async function save(event: React.FormEvent) {
-    event.preventDefault(); setSaving(true); setFailure('');
+    event.preventDefault();
+    if(!articleReady||uploadRequest.current||saveRequest.current)return;
+    const controller=new AbortController();saveRequest.current=controller;setSaving(true);setFailure('');
     try {
-      await client.request(id ? `/api/v1/content/articles/${id}` : '/api/v1/content/articles', isArticle, {method:id?'PUT':'POST',body:JSON.stringify(article)});
+      await client.request(id ? `/api/v1/content/articles/${id}` : '/api/v1/content/articles', isArticle, {method:id?'PUT':'POST',body:JSON.stringify(article),signal:controller.signal});
+      if(controller.signal.aborted||saveRequest.current!==controller)return;
       notify(t("文章已保存", "Article saved")); window.location.hash='articles';
-    } catch { setFailure(t("文章保存失败，请检查内容后重试", "Unable to save article. Check the content and retry.")); }
-    finally {setSaving(false);}
+    } catch { if(!controller.signal.aborted)setFailure(t("文章保存失败，请检查内容后重试", "Unable to save article. Check the content and retry.")); }
+    finally {if(saveRequest.current===controller){saveRequest.current=null;setSaving(false);}}
   }
   return <section className="xcss-content-stack"><PageHeader><div><h1>{id ? t("编辑文章", "Edit article") : t("新增文章", "Add article")}</h1><p>{t("支持 Markdown 正文，发布后可从网站访问。", "Write in Markdown. Published articles are available on the site.")}</p></div></PageHeader>
     {failure && <ErrorState>{failure}</ErrorState>}
+    {!articleReady?<>{loadFailure?<ErrorState onRetry={()=>setLoadAttempt(value=>value+1)}>{loadFailure}</ErrorState>:<LoadingState/>}<Button onClick={()=>{window.location.hash='articles';}}>{t("取消", "Cancel")}</Button></>:<>
     <form className="editor-form" onSubmit={event => void save(event)}>
       <FormField label={t("标题", "Title")}><TextField required maxLength={120} value={article.article_title} onChange={event => change('article_title',event.target.value)} /></FormField>
       <div className="form-grid"><FormField label={t("分类", "Category")}><Select required value={article.sort_id} onChange={event => {change('sort_id',Number(event.target.value));change('label_id',0);}}><option value={0}>{t("选择分类", "Select a category")}</option>{categories.map(item => <option key={item.id} value={item.id}>{item.sort_name}</option>)}</Select></FormField><FormField label={t("标签", "Tags")}><Select required value={article.label_id} onChange={event => change('label_id',Number(event.target.value))}><option value={0}>{t("选择标签", "Select a tag")}</option>{labels.filter(item=>item.sort_id===article.sort_id).map(item=><option key={item.id} value={item.id}>{item.label_name}</option>)}</Select></FormField></div>
-      <div className="form-grid"><FormField label={t("封面图片地址", "Cover image URL")}><TextField value={article.article_cover || ''} onChange={event => change('article_cover',event.target.value || null)} /></FormField><FormField label={t("上传封面图片", "Upload cover image")}><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" disabled={uploading} onChange={event=>void uploadPicture(event.target.files?.[0],'cover')}/></FormField></div>
+      <div className="form-grid"><FormField label={t("封面图片地址", "Cover image URL")}><TextField value={article.article_cover || ''} onChange={event => change('article_cover',event.target.value || null)} /></FormField><FormField label={t("上传封面图片", "Upload cover image")}><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" disabled={uploading||saving} onChange={event=>{const file=event.target.files?.[0];event.target.value='';void uploadPicture(file,'cover');}}/></FormField></div>
       <FormField label={t("Markdown 正文", "Markdown content")}><textarea className="xcss-input editor-textarea" required value={article.article_content} onChange={event => change('article_content',event.target.value)} /></FormField>
-      <div className="xcss-actions"><Button type="button" onClick={()=>setPreview(value=>!value)}>{preview?t("收起预览", "Hide preview"):t("预览正文", "Preview content")}</Button><FormField label={t("插入正文图片", "Insert content image")}><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" disabled={uploading} onChange={event=>void uploadPicture(event.target.files?.[0],'content')}/></FormField></div>
+      <div className="xcss-actions"><Button type="button" onClick={()=>setPreview(value=>!value)}>{preview?t("收起预览", "Hide preview"):t("预览正文", "Preview content")}</Button><FormField label={t("插入正文图片", "Insert content image")}><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" disabled={uploading||saving} onChange={event=>{const file=event.target.files?.[0];event.target.value='';void uploadPicture(file,'content');}}/></FormField></div>
       {preview&&<div className="editor-markdown-preview article-markdown" dangerouslySetInnerHTML={{__html:previewHtml}}/>}
       <div className="form-grid"><FormField label={t("视频地址", "Video URL")}><TextField value={article.video_url || ''} onChange={event => change('video_url',event.target.value || null)} /></FormField>{!article.view_status&&<FormField label={t("文章访问密码", "Article access password")}><TextField type="password" minLength={12} placeholder={id?t("留空则保留原密码", "Leave empty to keep the current password"):t("至少 12 字节", "At least 12 bytes")} value={article.password || ''} onChange={event => change('password',event.target.value || null)} /></FormField>}</div>
       <div className="check-row"><label><input type="checkbox" checked={article.view_status} onChange={event => {change('view_status',event.target.checked);if(event.target.checked)change('password',null);}} />{t(" 公开访问（关闭后需设置密码）", " Public access (a password is required when disabled)")}</label><label><input type="checkbox" checked={article.recommend_status} onChange={event => change('recommend_status',event.target.checked)} />{t(" 推荐", " Recommended")}</label><label><input type="checkbox" checked={article.comment_status} onChange={event => change('comment_status',event.target.checked)} />{t(" 允许评论", " Allow comments")}</label></div>
-      <div className="xcss-actions"><Button onClick={() => {window.location.hash='articles';}}>{t("取消", "Cancel")}</Button><Button type="submit" disabled={saving}>{saving?t("保存中…", "Saving…"):t("保存文章", "Save article")}</Button></div>
+      <div className="xcss-actions"><Button disabled={saving} onClick={() => {uploadRequest.current?.abort();uploadRequest.current=null;setUploading(false);window.location.hash='articles';}}>{t("取消", "Cancel")}</Button><Button type="submit" disabled={saving||uploading}>{uploading?t("图片上传中…", "Uploading image…"):saving?t("保存中…", "Saving…"):t("保存文章", "Save article")}</Button></div>
     </form>
     {id&&<ArticleNewsEditor id={id}/>}
+    </>}
   </section>;
 }
 

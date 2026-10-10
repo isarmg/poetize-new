@@ -2,7 +2,7 @@ import { isArticlePage, isCategories, isLinkClasses, isLinkPage, isLinks, isNote
 import { DisplayError } from './api';
 import { publicErrorMessage } from './api';
 import { t } from '@xcss/web/admin-ui/i18n';
-import {useEffect,useState,type FormEvent,type ReactNode} from 'react';
+import {useEffect,useRef,useState,type FormEvent,type ReactNode} from 'react';
 import {articleExcerpt,request,type ArticleSummary,type Category,type Page,type PublicLabel,type SiteInfo} from './api';
 import {ImageLightbox,safeImageUrl} from './MediaPreview';
 import {PublicChrome} from './PublicChrome';
@@ -56,10 +56,17 @@ function MessagePage(){
 function TravelPage(){
   const [classes,setClasses]=useState<LinkClass[]>([]);const [selected,setSelected]=useState('');const [page,setPage]=useState(1);
   const [result,setResult]=useState<Page<Link>|null>(null);const [items,setItems]=useState<Link[]>([]);const [lightbox,setLightbox]=useState<string|null>(null);const [error,setError]=useState('');
-  useEffect(()=>{void request('/api/v1/links/classes?kind=lovePhoto', isLinkClasses).then(value=>{setClasses(value);setSelected(current=>current||value[0]?.classify||'');}).catch(()=>setError(t("相册分类加载失败", "Unable to load photo categories")));},[]);
-  useEffect(()=>{const controller=new AbortController();const filter=selected?`&classify=${encodeURIComponent(selected)}`:'';void request(`/api/v1/links/page?kind=lovePhoto&page=${page}&size=12${filter}`, isLinkPage,{signal:controller.signal}).then(value=>{if(!controller.signal.aborted){setResult(value);setItems(current=>page===1?value.items:[...current,...value.items]);}}).catch(()=>{if(!controller.signal.aborted)setError(t("相册加载失败", "Unable to load photos"));});return()=>controller.abort();},[selected,page]);
-  function choose(value:string){setSelected(value);setPage(1);setItems([]);}
-  return <PublicChrome plainHeader title={t("时光相册", "Photo album")}><div className="travel-page"><section className="travel-banner"><div><h1>{t("时光相册", "Photo album")}</h1><h2>{t("每一张照片都是一次美好的记忆", "Every photo holds a memory")}</h2></div></section><div className="travel-content"><div className="original-tag-panel">{classes.map(item=><button className={selected===item.classify?'active':''} onClick={()=>choose(item.classify)} key={item.classify}>{item.classify} {item.count}</button>)}</div><h2>{selected||t("全部照片", "All photos")}</h2>{error&&<p role="alert">{error}</p>}<PhotoGrid items={items} onPreview={setLightbox}/>{result&&items.length<result.total?<button className="travel-more" onClick={()=>setPage(value=>value+1)}>{t("下一页", "Next page")}</button>:result&&<p className="travel-end">{t("~~到底啦~~", "~~You have reached the end~~")}</p>}</div></div><ImageLightbox src={lightbox} onClose={()=>setLightbox(null)}/></PublicChrome>;
+  const [classesError,setClassesError]=useState(''),[classesBusy,setClassesBusy]=useState(false),[classesAttempt,setClassesAttempt]=useState(0);
+  const classesLoading=useRef(false);
+  useEffect(()=>{const controller=new AbortController();classesLoading.current=true;setClassesBusy(true);setClassesError('');void request('/api/v1/links/classes?kind=lovePhoto', isLinkClasses,{signal:controller.signal}).then(value=>{if(!controller.signal.aborted){setClasses(value);setSelected(current=>current||value[0]?.classify||'');}}).catch(()=>{if(!controller.signal.aborted)setClassesError(t("相册分类加载失败", "Unable to load photo categories"));}).finally(()=>{if(!controller.signal.aborted){classesLoading.current=false;setClassesBusy(false);}});return()=>controller.abort();},[classesAttempt]);
+  function retryClasses(){if(classesLoading.current)return;classesLoading.current=true;setClassesBusy(true);setClassesAttempt(value=>value+1);}
+  const [busy,setBusy]=useState(false),[attempt,setAttempt]=useState(0);
+  const loading=useRef(false),loadedPage=useRef(0);
+  useEffect(()=>{loadedPage.current=0;setPage(1);setItems([]);setResult(null);},[selected]);
+  useEffect(()=>{const controller=new AbortController();loading.current=true;setBusy(true);setError('');const filter=selected?`&classify=${encodeURIComponent(selected)}`:'';void request(`/api/v1/links/page?kind=lovePhoto&page=${page}&size=12${filter}`, isLinkPage,{signal:controller.signal}).then(value=>{if(!controller.signal.aborted){loadedPage.current=page;setResult(value);setItems(current=>page===1?value.items:[...current,...value.items.filter(item=>!current.some(existing=>existing.id===item.id))]);}}).catch(()=>{if(!controller.signal.aborted)setError(t("相册加载失败", "Unable to load photos"));}).finally(()=>{if(!controller.signal.aborted){loading.current=false;setBusy(false);}});return()=>controller.abort();},[selected,page,attempt]);
+  function loadMore(){if(loading.current)return;loading.current=true;setBusy(true);setPage(loadedPage.current+1);setAttempt(value=>value+1);}
+  function choose(value:string){if(value===selected)return;loadedPage.current=0;setSelected(value);setPage(1);setItems([]);setResult(null);}
+  return <PublicChrome plainHeader title={t("时光相册", "Photo album")}><div className="travel-page"><section className="travel-banner"><div><h1>{t("时光相册", "Photo album")}</h1><h2>{t("每一张照片都是一次美好的记忆", "Every photo holds a memory")}</h2></div></section><div className="travel-content"><div className="original-tag-panel">{classesError&&<p role="alert">{classesError} <button type="button" disabled={classesBusy} onClick={retryClasses}>{t("重试分类", "Retry categories")}</button></p>}{classes.map(item=><button className={selected===item.classify?'active':''} onClick={()=>choose(item.classify)} key={item.classify}>{item.classify} {item.count}</button>)}</div><h2>{selected||t("全部照片", "All photos")}</h2>{error&&<p role="alert">{error} <button type="button" disabled={busy} onClick={loadMore}>{t("重试", "Try again")}</button></p>}<PhotoGrid items={items} onPreview={setLightbox}/>{result&&items.length<result.total?<button className="travel-more" disabled={busy} onClick={loadMore}>{t("下一页", "Next page")}</button>:result&&<p className="travel-end">{t("~~到底啦~~", "~~You have reached the end~~")}</p>}</div></div><ImageLightbox src={lightbox} onClose={()=>setLightbox(null)}/></PublicChrome>;
 }
 
 

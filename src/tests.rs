@@ -998,3 +998,5 @@ async fn comment_normalization_matches_shared_unicode_fixtures() {
         }
     }
 }
+
+mod taxonomy;

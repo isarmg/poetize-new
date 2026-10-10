@@ -376,6 +376,26 @@ fn validate_article(input: &ArticleInput, has_existing_password: bool) -> Result
     Ok(())
 }
 
+// Serialize taxonomy validation with label moves/deletes and category deletion.
+// An article must never commit a label from another (or a missing) category.
+async fn validate_article_taxonomy(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    input: &ArticleInput,
+) -> Result<(), AppError> {
+    let matches: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM label l JOIN sort s ON s.id=l.sort_id WHERE l.id=? AND s.id=?)",
+    )
+    .bind(input.label_id)
+    .bind(input.sort_id)
+    .fetch_one(&mut **transaction)
+    .await
+    .map_err(db_error)?;
+    if !matches {
+        return Err(invalid("标签不属于所选分类，请重新选择分类和标签"));
+    }
+    Ok(())
+}
+
 pub(super) async fn create_article(
     State(state): State<AppState>,
     crate::ContractJson(input): crate::ContractJson<ArticleInput>,
@@ -388,11 +408,18 @@ pub(super) async fn create_article(
         .transpose()
         .map_err(|_| invalid("文章密码无效"))?;
     let author = crate::site_author_id(&state.pool).await?;
+    let mut transaction = state
+        .pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(db_error)?;
+    validate_article_taxonomy(&mut transaction, &input).await?;
     let id = sqlx::query("INSERT INTO article(user_id,sort_id,label_id,article_cover,article_title,article_content,video_url,view_status,recommend_status,comment_status,password,tips) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)")
         .bind(author)
         .bind(input.sort_id).bind(input.label_id).bind(input.article_cover).bind(input.article_title).bind(input.article_content).bind(input.video_url)
         .bind(i64::from(input.view_status)).bind(i64::from(input.recommend_status)).bind(i64::from(input.comment_status)).bind(password).bind(input.tips)
-        .execute(&state.pool).await.map_err(db_error)?.last_insert_rowid();
+        .execute(&mut *transaction).await.map_err(db_error)?.last_insert_rowid();
+    transaction.commit().await.map_err(db_error)?;
     Ok(Json(load_article(&state.pool, id, true).await?))
 }
 
@@ -401,16 +428,22 @@ pub(super) async fn update_article(
     Path(id): Path<i64>,
     crate::ContractJson(input): crate::ContractJson<ArticleInput>,
 ) -> ApiResult<Article> {
+    let mut transaction = state
+        .pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(db_error)?;
     let old_password: Option<Option<String>> =
         sqlx::query_scalar("SELECT password FROM article WHERE id=? AND deleted=0")
             .bind(id)
-            .fetch_optional(&state.pool)
+            .fetch_optional(&mut *transaction)
             .await
             .map_err(db_error)?;
     let Some(old_password) = old_password else {
         return Err(absent());
     };
     validate_article(&input, old_password.is_some())?;
+    validate_article_taxonomy(&mut transaction, &input).await?;
     let password = input
         .password
         .as_deref()
@@ -420,10 +453,11 @@ pub(super) async fn update_article(
     let result = sqlx::query("UPDATE article SET sort_id=?,label_id=?,article_cover=?,article_title=?,article_content=?,video_url=?,view_status=?,recommend_status=?,comment_status=?,password=CASE WHEN ?=1 THEN NULL ELSE COALESCE(?,password) END,tips=?,update_time=CURRENT_TIMESTAMP WHERE id=? AND deleted=0")
         .bind(input.sort_id).bind(input.label_id).bind(input.article_cover).bind(input.article_title).bind(input.article_content).bind(input.video_url)
         .bind(i64::from(input.view_status)).bind(i64::from(input.recommend_status)).bind(i64::from(input.comment_status)).bind(i64::from(input.view_status)).bind(password).bind(input.tips).bind(id)
-        .execute(&state.pool).await.map_err(db_error)?;
+        .execute(&mut *transaction).await.map_err(db_error)?;
     if result.rows_affected() == 0 {
         return Err(absent());
     }
+    transaction.commit().await.map_err(db_error)?;
     Ok(Json(load_article(&state.pool, id, true).await?))
 }
 

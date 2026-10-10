@@ -5,8 +5,10 @@ import { transformWithOxc } from 'vite';
 
 // Transform the original TSX, replacing only explicitly named module boundaries.
 // The shared UI is loaded from the installed package. No browser or DOM is used.
-export async function originalModule(entry, replacements = {}) {
-  const { code } = await transformWithOxc(await readFile(entry, 'utf8'), fileURLToPath(entry), {
+export async function originalModule(entry, replacements = {}, exports = []) {
+  const source = await readFile(entry, 'utf8');
+  const exposed = exports.length ? `\nexport { ${exports.join(', ')} };` : '';
+  const { code } = await transformWithOxc(source + exposed, fileURLToPath(entry), {
     jsx: { runtime: 'automatic' },
   });
   const hookHost = new URL('./hook-host.mjs', import.meta.url).href;
