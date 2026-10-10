@@ -52,9 +52,20 @@ try {
         page.on('pageerror', error => errors.push(error.message));
         await fixtures(page, state);
         await page.clock.install({ time: new Date('2026-10-08T12:34:56+08:00') });
-        for (const [path, selector] of [['/', '.home-layout'], ['/sort', '.original-article-list'], ['/menory', '.journey-page'], ['/jotting', '.wall-layout'], ['/travel', '.travel-page'], ['/favorite', '.favorite-page'], ['/article/1', '.reading-layout'], ['/love', '.love-content']]) {
+        // Wait for fixture content to render; autoplay media and lazy resources
+        // are independent of whether each route is ready for layout assertions.
+        for (const [path, selector, readySelector] of [
+          ['/', '.home-layout', '.home-content .article-card:nth-child(6)'],
+          ['/sort', '.original-article-list', '.original-list-card:nth-of-type(6)'],
+          ['/menory', '.journey-page', '.journey-item:nth-child(6)'],
+          ['/jotting', '.wall-layout', '.wall-card:nth-child(10)'],
+          ['/travel', '.travel-page', '.travel-content .travel-photo-card:nth-child(12)'],
+          ['/favorite', '.favorite-page', '.friend-site-info span:text-is("XOCS")'],
+          ['/article/1', '.reading-layout', '.article-markdown h2'],
+          ['/love', '.love-content', '.love-content .travel-photo-card:nth-child(12)'],
+        ]) {
           await page.goto(`${base}${path}?lang=en`);
-          await page.waitForLoadState('networkidle');
+          await page.locator(readySelector).waitFor({ state: 'visible', timeout: 30000 });
           await widthCheck(page, selector);
           assert.equal(await page.getByRole('alert').count(), 0, path);
         }
