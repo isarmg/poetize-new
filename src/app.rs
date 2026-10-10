@@ -28,6 +28,7 @@ pub(crate) struct AppState {
     pub(crate) admin: Arc<AdministratorService<SqliteAdministratorStore>>,
     pub(crate) origin: AdministratorOriginMode,
     pub(crate) media: PathBuf,
+    pub(crate) trusted_proxies: Vec<std::net::IpAddr>,
 }
 
 #[derive(Debug)]

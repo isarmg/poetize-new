@@ -1,14 +1,14 @@
+import { isNews, type NewsEntry } from './public-contracts';
 import { t } from '@xcss/web/admin-ui/i18n';
 import { useEffect, useState } from 'react';
 import { publicErrorMessage, request } from './api';
 
-type News = { id: number; content: string; create_time: string | null };
 
 export function ArticleNews({ articleId }: { articleId: number }) {
-  const [items, setItems] = useState<News[]>([]), [error, setError] = useState('');
+  const [items, setItems] = useState<NewsEntry[]>([]), [error, setError] = useState('');
   useEffect(() => {
     const controller = new AbortController();
-    void request<News[]>(`/api/v1/articles/${articleId}/news`, { signal: controller.signal })
+    void request(`/api/v1/articles/${articleId}/news`, isNews, { signal: controller.signal })
       .then(value => { if (!controller.signal.aborted) setItems(value); })
       .catch(reason => { if (!controller.signal.aborted) setError(publicErrorMessage(reason, t('最新进展加载失败', 'Unable to load recent updates'))); });
     return () => controller.abort();

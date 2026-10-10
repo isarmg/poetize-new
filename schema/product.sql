@@ -89,6 +89,13 @@ CREATE TABLE comment (
     create_time TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX comment_source ON comment(source,type,create_time,id);
+-- A durable receipt prevents a retried submission from being inserted twice,
+-- including after a moderator removes the original comment.
+CREATE TABLE comment_submission (
+    request_id TEXT PRIMARY KEY NOT NULL CHECK(length(request_id)=36),
+    request_hash BLOB NOT NULL CHECK(length(request_hash)=32),
+    comment_id INTEGER REFERENCES comment(id) ON DELETE SET NULL
+);
 CREATE TABLE sort (id INTEGER PRIMARY KEY,sort_name TEXT NOT NULL,sort_description TEXT,sort_type INTEGER,priority INTEGER);
 CREATE TABLE home_sections (
     id INTEGER PRIMARY KEY,

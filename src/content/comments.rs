@@ -3,15 +3,17 @@ use crate::{ApiResult, AppError, AppState, absent, db_error, invalid, rate_limit
 use axum::{
     Json,
     extract::{ConnectInfo, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
 };
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
+use sha2::{Digest, Sha256};
+use std::net::{IpAddr, SocketAddr};
 use xcss::server_cli::{ContractPath as Path, ContractQuery as Query};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct CommentInput {
+    request_id: String,
     article_id: i64,
     content: String,
     parent_comment_id: Option<i64>,
@@ -20,6 +22,7 @@ pub(super) struct CommentInput {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct MessageCommentInput {
+    request_id: String,
     content: String,
     parent_comment_id: Option<i64>,
 }
@@ -27,6 +30,7 @@ pub(super) struct MessageCommentInput {
 pub(super) async fn create_comment(
     State(state): State<AppState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     crate::ContractJson(input): crate::ContractJson<CommentInput>,
 ) -> ApiResult<Comment> {
     let enabled: Option<i64> = sqlx::query_scalar("SELECT comment_status FROM article WHERE id=? AND deleted=0 AND view_status=1 AND password IS NULL")
@@ -34,13 +38,17 @@ pub(super) async fn create_comment(
     if enabled != Some(1) {
         return Err(AppError(StatusCode::FORBIDDEN, "文章不允许评论"));
     }
+    let visitor = rate_limit::visitor_ip(peer, &headers, &state.trusted_proxies)?;
     create_anonymous_comment(
         &state,
-        peer,
+        visitor,
         input.article_id,
         "article",
-        input.content,
-        input.parent_comment_id,
+        MessageCommentInput {
+            request_id: input.request_id,
+            content: input.content,
+            parent_comment_id: input.parent_comment_id,
+        },
     )
     .await
 }
@@ -48,46 +56,46 @@ pub(super) async fn create_comment(
 pub(super) async fn create_message_comment(
     State(state): State<AppState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     crate::ContractJson(input): crate::ContractJson<MessageCommentInput>,
 ) -> ApiResult<Comment> {
-    create_anonymous_comment(
-        &state,
-        peer,
-        0,
-        "message",
-        input.content,
-        input.parent_comment_id,
-    )
-    .await
+    let visitor = rate_limit::visitor_ip(peer, &headers, &state.trusted_proxies)?;
+    create_anonymous_comment(&state, visitor, 0, "message", input).await
 }
 
 pub(super) async fn create_love_comment(
     State(state): State<AppState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     crate::ContractJson(input): crate::ContractJson<MessageCommentInput>,
 ) -> ApiResult<Comment> {
     let source = crate::site_author_id(&state.pool).await?;
-    create_anonymous_comment(
-        &state,
-        peer,
-        source,
-        "love",
-        input.content,
-        input.parent_comment_id,
-    )
-    .await
+    let visitor = rate_limit::visitor_ip(peer, &headers, &state.trusted_proxies)?;
+    create_anonymous_comment(&state, visitor, source, "love", input).await
+}
+
+fn valid_request_id(value: &str) -> bool {
+    value.len() == 36
+        && value.bytes().enumerate().all(|(index, byte)| match index {
+            8 | 13 | 18 | 23 => byte == b'-',
+            14 => byte == b'4',
+            19 => matches!(byte, b'8' | b'9' | b'a' | b'b'),
+            _ => byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'),
+        })
 }
 
 async fn create_anonymous_comment(
     state: &AppState,
-    peer: SocketAddr,
+    visitor: IpAddr,
     source: i64,
     kind: &'static str,
-    content: String,
-    parent_comment_id: Option<i64>,
+    input: MessageCommentInput,
 ) -> ApiResult<Comment> {
-    let content = content.trim();
-    let parent = parent_comment_id.unwrap_or(0);
+    let content = input.content.trim();
+    let parent = input.parent_comment_id.unwrap_or(0);
+    if !valid_request_id(&input.request_id) {
+        return Err(invalid("评论请求标识必须为小写 UUIDv4"));
+    }
     if content.is_empty()
         || content.chars().count() > 1024
         || content.contains('<')
@@ -96,9 +104,41 @@ async fn create_anonymous_comment(
     {
         return Err(invalid("评论内容或回复目标无效"));
     }
-    let key = rate_limit::attempt_key("anonymous_comment", &peer.ip().to_string(), "");
-    rate_limit::record_attempt(&state.pool, &key, 10).await?;
-    let mut transaction = state.pool.begin().await.map_err(db_error)?;
+    let mut hash = Sha256::new();
+    hash.update(source.to_be_bytes());
+    hash.update(kind.as_bytes());
+    hash.update([0]);
+    hash.update(content.as_bytes());
+    hash.update(parent.to_be_bytes());
+    let request_hash = hash.finalize().to_vec();
+    // Serialize receipt lookup and insertion with the comment and its quota.
+    // A lost response, concurrent retry or process restart cannot create a second row.
+    let mut transaction = state
+        .pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(db_error)?;
+    let previous: Option<(Vec<u8>, Option<i64>)> =
+        sqlx::query_as("SELECT request_hash,comment_id FROM comment_submission WHERE request_id=?")
+            .bind(&input.request_id)
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(db_error)?;
+    if let Some((previous_hash, comment_id)) = previous {
+        if previous_hash != request_hash {
+            return Err(AppError(StatusCode::CONFLICT, "评论请求标识已用于不同内容"));
+        }
+        let id = comment_id.ok_or(AppError(StatusCode::CONFLICT, "原评论已删除，不会重复发表"))?;
+        let comment = sqlx::query_as::<_, Comment>(sqlx::AssertSqlSafe(format!(
+            "{COMMENT_SQL} WHERE c.id=?"
+        )))
+        .bind(id)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(db_error)?;
+        transaction.commit().await.map_err(db_error)?;
+        return Ok(Json(comment));
+    }
     let (floor, parent_user) = if parent > 0 {
         let row: Option<(Option<i64>, Option<i64>, Option<i64>)> = sqlx::query_as("SELECT parent_comment_id,floor_comment_id,user_id FROM comment WHERE id=? AND source=? AND type=?")
             .bind(parent).bind(source).bind(kind).fetch_optional(&mut *transaction).await.map_err(db_error)?;
@@ -116,9 +156,18 @@ async fn create_anonymous_comment(
     } else {
         (None, None)
     };
+    let key = rate_limit::attempt_key("anonymous_comment", &visitor.to_string(), "");
+    rate_limit::record_attempt_on(&mut transaction, &key, 10).await?;
     let id = sqlx::query("INSERT INTO comment(source,type,parent_comment_id,user_id,floor_comment_id,parent_user_id,comment_content) VALUES(?,?,?,NULL,?,?,?)")
         .bind(source).bind(kind).bind(parent).bind(floor).bind(parent_user).bind(content)
         .execute(&mut *transaction).await.map_err(db_error)?.last_insert_rowid();
+    sqlx::query("INSERT INTO comment_submission(request_id,request_hash,comment_id) VALUES(?,?,?)")
+        .bind(&input.request_id)
+        .bind(request_hash)
+        .bind(id)
+        .execute(&mut *transaction)
+        .await
+        .map_err(db_error)?;
     let comment =
         sqlx::query_as::<_, Comment>(sqlx::AssertSqlSafe(format!("{COMMENT_SQL} WHERE c.id=?")))
             .bind(id)

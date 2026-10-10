@@ -182,6 +182,7 @@ pub(crate) async fn validate_database(pool: &SqlitePool) -> anyhow::Result<()> {
         "member_sessions",
         "article",
         "comment",
+        "comment_submission",
         "sort",
         "label",
         "resource",

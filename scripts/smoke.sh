@@ -87,10 +87,10 @@ for page in im user socket; do
   test "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:18881/$page")" = 404
 done
 test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
-  --data '{"content":"Smoke love wish"}' http://127.0.0.1:18881/api/v1/love-comments)" = 200
+  --data '{"request_id":"00000000-0000-4000-8000-000000000001","content":"Smoke love wish"}' http://127.0.0.1:18881/api/v1/love-comments)" = 200
 curl -fsS http://127.0.0.1:18881/api/v1/love-comments | grep -q 'Smoke love wish'
 test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
-  --data '{"article_id":1,"content":"Smoke anonymous article comment"}' http://127.0.0.1:18881/api/v1/comments)" = 200
+  --data '{"request_id":"00000000-0000-4000-8000-000000000002","article_id":1,"content":"Smoke anonymous article comment"}' http://127.0.0.1:18881/api/v1/comments)" = 200
 test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
   --data '{"message":"Smoke anonymous message"}' http://127.0.0.1:18881/api/v1/tree-hole/guest)" = 200
 test "$(curl -s -o /dev/null -w '%{http_code}' -b "$smoke_dir/cookies" \

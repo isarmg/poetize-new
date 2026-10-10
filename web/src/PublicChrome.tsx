@@ -1,3 +1,4 @@
+import { isCategories, isSiteInfo } from './public-contracts';
 import { t } from '@xcss/web/admin-ui/i18n';
 import {useEffect, useMemo, useState, type ReactNode} from 'react';
 import {request, type Category, type SiteInfo} from './api';
@@ -45,7 +46,7 @@ export function PublicChrome({site, title, home = false, cover, articleMeta, pla
   useEffect(() => {
     if (site !== undefined) return;
     const controller = new AbortController();
-    void request<SiteInfo>('/api/v1/site', {signal: controller.signal}).then(setLoadedSite).catch(() => {});
+    void request('/api/v1/site', isSiteInfo, {signal: controller.signal}).then(setLoadedSite).catch(() => {});
     return () => controller.abort();
   }, [site]);
   useEffect(() => {
@@ -73,7 +74,7 @@ export function PublicChrome({site, title, home = false, cover, articleMeta, pla
     window.addEventListener('scroll', schedule, {passive: true});
     return () => { window.removeEventListener('scroll', schedule); window.cancelAnimationFrame(frame); };
   }, [menuOpen]);
-  useEffect(()=>{void request<Category[]>('/api/v1/categories').then(setCategories).catch(()=>{});},[]);
+  useEffect(()=>{void request('/api/v1/categories', isCategories).then(setCategories).catch(()=>{});},[]);
   useEffect(() => {
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') { setMenuOpen(false); document.querySelectorAll<HTMLDetailsElement>('.original-public .public-header details[open]').forEach(item => { item.open = false; }); } };
     window.addEventListener('keydown', close);

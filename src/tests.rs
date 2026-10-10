@@ -18,6 +18,12 @@ use xcss::admin_core::AdministratorService;
 use xcss::admin_sqlite::SqliteAdministratorStore;
 
 async fn setup() -> (tempfile::TempDir, Router, SqlitePool) {
+    setup_with_proxies(Vec::new()).await
+}
+
+async fn setup_with_proxies(
+    trusted_proxies: Vec<std::net::IpAddr>,
+) -> (tempfile::TempDir, Router, SqlitePool) {
     let dir = tempfile::tempdir().unwrap();
     std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     let db = dir.path().join("site.sqlite");
@@ -35,6 +41,7 @@ async fn setup() -> (tempfile::TempDir, Router, SqlitePool) {
         admin,
         origin: AdministratorOriginMode::LoopbackDevelopmentHttp,
         media: dir.path().to_path_buf(),
+        trusted_proxies,
     };
     let app = router(state, Some(dir.path().to_path_buf())).unwrap();
     (dir, app, pool)
@@ -376,7 +383,12 @@ async fn administrator_route_rejects_anonymous_mutation() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
-async fn anonymous_post(app: &Router, path: &str, body: serde_json::Value) -> Response {
+async fn anonymous_post(app: &Router, path: &str, mut body: serde_json::Value) -> Response {
+    if path.ends_with("comments") && body.get("request_id").is_none() {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        body["request_id"] = format!("00000000-0000-4000-8000-{id:012x}").into();
+    }
     app.clone()
         .oneshot(with_peer(
             Request::builder()
@@ -645,4 +657,344 @@ async fn search_ranks_titles_and_hides_protected_body_matches() {
         .await
         .unwrap();
     assert_eq!(body_json(after).await["total"], 1);
+}
+
+async fn comment_from(
+    app: &Router,
+    peer: &str,
+    forwarded: Option<&str>,
+    request_id: &str,
+    content: &str,
+) -> Response {
+    let mut request = Request::builder()
+        .method("POST")
+        .uri("/api/v1/message-comments")
+        .header("content-type", "application/json");
+    if let Some(ip) = forwarded {
+        request = request
+            .header("x-real-ip", ip)
+            .header("x-forwarded-for", ip);
+    }
+    let mut request = request
+        .body(Body::from(
+            serde_json::json!({
+                "request_id": request_id, "content": content,
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    request
+        .extensions_mut()
+        .insert(ConnectInfo(peer.parse::<SocketAddr>().unwrap()));
+    app.clone().oneshot(request).await.unwrap()
+}
+
+fn comment_request_id(id: u64) -> String {
+    format!("12345678-1234-4123-8123-{id:012x}")
+}
+
+#[tokio::test]
+async fn comment_proxy_policy_is_explicit_and_visitors_have_independent_quotas() {
+    let (_dir, app, _pool) = setup_with_proxies(vec!["127.0.0.1".parse().unwrap()]).await;
+    for id in 1..=11 {
+        let visitor = format!("192.0.2.{id}");
+        assert_eq!(
+            comment_from(
+                &app,
+                "127.0.0.1:1234",
+                Some(&visitor),
+                &comment_request_id(id),
+                "Independent visitor"
+            )
+            .await
+            .status(),
+            StatusCode::OK
+        );
+    }
+    for id in 12..=21 {
+        assert_eq!(
+            comment_from(
+                &app,
+                "127.0.0.1:1234",
+                Some("192.0.2.1"),
+                &comment_request_id(id),
+                "Same visitor"
+            )
+            .await
+            .status(),
+            if id < 21 {
+                StatusCode::OK
+            } else {
+                StatusCode::TOO_MANY_REQUESTS
+            }
+        );
+    }
+    for invalid in [None, Some("unknown"), Some("192.0.2.1, 192.0.2.2")] {
+        assert_eq!(
+            comment_from(
+                &app,
+                "127.0.0.1:1234",
+                invalid,
+                &comment_request_id(22),
+                "Invalid proxy identity"
+            )
+            .await
+            .status(),
+            StatusCode::BAD_REQUEST
+        );
+    }
+    // The same forwarding header from an untrusted immediate peer has no effect.
+    for id in 1..=11 {
+        let visitor = format!("198.51.100.{id}");
+        assert_eq!(
+            comment_from(
+                &app,
+                "203.0.113.1:1234",
+                Some(&visitor),
+                &comment_request_id(100 + id),
+                "Untrusted header"
+            )
+            .await
+            .status(),
+            if id <= 10 {
+                StatusCode::OK
+            } else {
+                StatusCode::TOO_MANY_REQUESTS
+            }
+        );
+    }
+    let mut headers = axum::http::HeaderMap::new();
+    headers.append("x-real-ip", "192.0.2.1".parse().unwrap());
+    headers.append("x-real-ip", "192.0.2.2".parse().unwrap());
+    assert!(
+        crate::rate_limit::visitor_ip(
+            "127.0.0.1:1234".parse().unwrap(),
+            &headers,
+            &["127.0.0.1".parse().unwrap()]
+        )
+        .is_err()
+    );
+}
+
+#[tokio::test]
+async fn direct_comments_ignore_forwarding_headers_by_default() {
+    let (_dir, app, _pool) = setup().await;
+    for id in 1..=11 {
+        assert_eq!(
+            comment_from(
+                &app,
+                "127.0.0.1:1234",
+                Some(&format!("192.0.2.{id}")),
+                &comment_request_id(id),
+                "Direct visitor"
+            )
+            .await
+            .status(),
+            if id <= 10 {
+                StatusCode::OK
+            } else {
+                StatusCode::TOO_MANY_REQUESTS
+            }
+        );
+    }
+}
+
+#[tokio::test]
+async fn comment_submission_retries_survive_concurrency_restart_and_deletion() {
+    let (dir, app, pool) = setup().await;
+    let id = comment_request_id(1);
+    let (first, second) = tokio::join!(
+        comment_from(&app, "127.0.0.1:1234", None, &id, "One submission"),
+        comment_from(&app, "127.0.0.1:1234", None, &id, "One submission"),
+    );
+    assert_eq!(first.status(), StatusCode::OK);
+    assert_eq!(second.status(), StatusCode::OK);
+    let first = body_json(first).await;
+    assert_eq!(body_json(second).await["id"], first["id"]);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM comment")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT failures FROM member_login_failures")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        comment_from(&app, "127.0.0.1:1234", None, &id, "Changed payload")
+            .await
+            .status(),
+        StatusCode::CONFLICT
+    );
+    // Dropping a committed response models a connection lost after commit.
+    drop(
+        comment_from(
+            &app,
+            "127.0.0.1:1234",
+            None,
+            &comment_request_id(2),
+            "Lost response",
+        )
+        .await,
+    );
+    drop(app);
+    close_fixture_pool(&pool).await;
+    let pool = open_database(&dir.path().join("site.sqlite"), false)
+        .await
+        .unwrap();
+    let app = router(
+        AppState {
+            scope: xcss::server_runtime::WorkScope::new(),
+            pool: pool.clone(),
+            admin: Arc::new(AdministratorService::new(SqliteAdministratorStore::new(
+                pool.clone(),
+            ))),
+            origin: AdministratorOriginMode::LoopbackDevelopmentHttp,
+            media: dir.path().to_path_buf(),
+            trusted_proxies: Vec::new(),
+        },
+        Some(dir.path().to_path_buf()),
+    )
+    .unwrap();
+    let recovered = comment_from(
+        &app,
+        "127.0.0.1:1234",
+        None,
+        &comment_request_id(2),
+        "Lost response",
+    )
+    .await;
+    assert_eq!(recovered.status(), StatusCode::OK);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM comment")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        2
+    );
+    for next in 3..=10 {
+        assert_eq!(
+            comment_from(
+                &app,
+                "127.0.0.1:1234",
+                None,
+                &comment_request_id(next),
+                "Fresh operation"
+            )
+            .await
+            .status(),
+            StatusCode::OK
+        );
+    }
+    assert_eq!(
+        comment_from(
+            &app,
+            "127.0.0.1:1234",
+            None,
+            &comment_request_id(11),
+            "Over quota"
+        )
+        .await
+        .status(),
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    assert_eq!(
+        comment_from(&app, "127.0.0.1:1234", None, &id, "One submission")
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    sqlx::query("DELETE FROM comment WHERE id=?")
+        .bind(first["id"].as_i64().unwrap())
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        comment_from(&app, "127.0.0.1:1234", None, &id, "One submission")
+            .await
+            .status(),
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM comment")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        9
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM comment_submission")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        10
+    );
+}
+
+#[tokio::test]
+async fn comment_submission_requires_current_identity_and_current_ddl() {
+    let (_dir, app, pool) = setup().await;
+    for input in [
+        serde_json::json!({"content":"Missing identity"}),
+        serde_json::json!({"content":"Invalid identity","request_id":"not-a-uuid"}),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(with_peer(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/message-comments")
+                    .header("content-type", "application/json")
+                    .body(Body::from(input.to_string()))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+    let identity = crate::schema::current_identity().unwrap();
+    assert_eq!(identity.application_version, "xocs-db-v2");
+    assert_eq!(identity.schema_revision, 2);
+    crate::schema::validate(&pool).await.unwrap();
+    sqlx::query("DROP TABLE comment_submission")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(crate::schema::validate(&pool).await.is_err());
+}
+
+#[tokio::test]
+async fn comment_normalization_matches_shared_unicode_fixtures() {
+    let fixtures: Vec<serde_json::Value> =
+        serde_json::from_str(include_str!("../tests/fixtures/comment-whitespace.json")).unwrap();
+    let (_dir, app, _pool) = setup().await;
+    for (index, fixture) in fixtures.iter().enumerate() {
+        let input = fixture["input"].as_str().unwrap();
+        let expected = fixture["expected"].as_str().unwrap();
+        assert_eq!(input.trim(), expected, "{}", fixture["name"]);
+        let response = comment_from(
+            &app,
+            &format!("127.0.0.{}:1234", index + 1),
+            None,
+            &comment_request_id(index as u64 + 1),
+            input,
+        )
+        .await;
+        if expected.is_empty() {
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        } else {
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(
+                body_json(response).await["comment_content"],
+                expected,
+                "{}",
+                fixture["name"]
+            );
+        }
+    }
 }

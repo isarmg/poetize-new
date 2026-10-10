@@ -114,8 +114,8 @@ try {
           if (request.method() === 'POST') {
             assert.equal(request.headers()['x-csrf-token'], undefined);
             const payload = request.postDataJSON();
-            assert.deepEqual(Object.keys(payload).sort(), (path === '/api/v1/comments' ? ['article_id', 'content', 'parent_comment_id'] : ['content', 'parent_comment_id']).sort());
-            if (failNext) { failNext = false; return route.fulfill({ status: 429, json: { code: 'too_many_requests', retryable: true } }); }
+            assert.deepEqual(Object.keys(payload).sort(), (path === '/api/v1/comments' ? ['request_id', 'article_id', 'content', 'parent_comment_id'] : ['request_id', 'content', 'parent_comment_id']).sort());
+            if (failNext) { failNext = false; return route.fulfill({ status: 429, json: { code: 'too_many_requests', message: 'Too many requests', retryable: true } }); }
             const parent = items.find(item => item.id === payload.parent_comment_id);
             const comment = { id: nextId++, user_id: null, username: null, avatar: null, comment_content: payload.content, create_time: '2026-10-08', parent_comment_id: payload.parent_comment_id, parent_username: null, floor_comment_id: parent?.floor_comment_id || parent?.id || null, reply_count: 0 };
             if (parent) items.find(item => item.id === comment.floor_comment_id).reply_count++;

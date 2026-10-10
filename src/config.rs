@@ -2,7 +2,7 @@ use anyhow::{Context, ensure};
 use clap::Args;
 use serde::{Deserialize, Serialize};
 use std::{
-    net::SocketAddr,
+    net::{IpAddr, SocketAddr},
     path::{Path, PathBuf},
 };
 use xcss::config::{EnvMapping, EnvValueKind, Loaded, Override};
@@ -14,6 +14,7 @@ pub struct Settings {
     pub database: Option<PathBuf>,
     pub media: Option<PathBuf>,
     pub bind: SocketAddr,
+    pub trusted_proxies: Vec<IpAddr>,
     pub development_http: bool,
     pub web: Option<PathBuf>,
 }
@@ -25,6 +26,7 @@ impl Default for Settings {
             database: None,
             media: None,
             bind: "127.0.0.1:8081".parse().expect("static loopback address"),
+            trusted_proxies: Vec::new(),
             development_http: false,
             web: None,
         }
@@ -39,6 +41,9 @@ pub struct Overrides {
     pub media: Option<PathBuf>,
     #[arg(long)]
     pub bind: Option<SocketAddr>,
+    /// Exact proxy peer IPs allowed to supply one overwritten X-Real-IP header.
+    #[arg(long, value_delimiter = ',', num_args = 1..)]
+    pub trusted_proxies: Option<Vec<IpAddr>>,
     /// Use insecure HTTP cookies only for an explicit loopback development server.
     #[arg(long, num_args=0..=1, default_missing_value="true")]
     pub development_http: Option<bool>,
@@ -54,6 +59,11 @@ pub fn load(
 ) -> anyhow::Result<Loaded<Settings>> {
     let bytes = config.map(xcss::config::read_private_file).transpose()?;
     let mappings = [
+        EnvMapping {
+            variable: "XOCS_TRUSTED_PROXIES",
+            path: "/trusted_proxies",
+            kind: EnvValueKind::Json,
+        },
         EnvMapping {
             variable: "XOCS_DATA_DIR",
             path: "/data_dir",
@@ -112,6 +122,12 @@ pub fn load(
     }
     if let Some(bind) = args.bind {
         cli.push(Override::new("/bind", bind.to_string()));
+    }
+    if let Some(value) = &args.trusted_proxies {
+        cli.push(Override::new(
+            "/trusted_proxies",
+            serde_json::to_value(value)?,
+        ));
     }
     if let Some(value) = args.development_http {
         cli.push(Override::new("/development_http", value));
@@ -174,6 +190,16 @@ impl Settings {
         Ok(parent.to_path_buf())
     }
     fn validate(&self) -> anyhow::Result<()> {
+        ensure!(
+            self.trusted_proxies.len() <= 32,
+            "at most 32 trusted proxy addresses are allowed"
+        );
+        ensure!(
+            self.trusted_proxies
+                .iter()
+                .all(|ip| !ip.is_unspecified() && !ip.is_multicast()),
+            "trusted proxies must be individual peer addresses"
+        );
         for path in [&self.data_dir, &self.database, &self.media, &self.web]
             .into_iter()
             .flatten()
@@ -221,4 +247,31 @@ pub fn runtime_lock(settings: &Settings) -> anyhow::Result<xcss::state_file::Ins
     xcss::server_cli::runtime_allowed(state.path()).map_err(crate::CliFailure)?;
     state.verify_identity()?;
     Ok(lock)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn trusted_proxy_configuration_is_opt_in_and_accepts_only_exact_addresses() {
+        assert!(Settings::default().trusted_proxies.is_empty());
+        for address in ["127.0.0.1", "::1", "192.0.2.1"] {
+            let settings = Settings {
+                trusted_proxies: vec![address.parse().unwrap()],
+                ..Settings::default()
+            };
+            assert!(settings.validate().is_ok());
+        }
+        for address in ["0.0.0.0", "::", "224.0.0.1"] {
+            let settings = Settings {
+                trusted_proxies: vec![address.parse().unwrap()],
+                ..Settings::default()
+            };
+            assert!(settings.validate().is_err());
+        }
+        let mut value = serde_json::to_value(Settings::default()).unwrap();
+        value["trusted_proxies"] = serde_json::json!(["127.0.0.0/8"]);
+        assert!(serde_json::from_value::<Settings>(value).is_err());
+    }
 }

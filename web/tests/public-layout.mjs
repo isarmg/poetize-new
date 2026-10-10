@@ -9,7 +9,7 @@ const families = [
   { id: 2, man_name: 'Alex', woman_name: 'Sam', timing: '2026-09-01', bg_cover: null, man_cover: '/legacy/avatar.jpg', woman_cover: null, family_info: 'A different story, with the same wish to remember our days.', countdown_title: 'Our next trip', countdown_time: '2026-10-09' },
 ];
 const photos = Array.from({ length: 14 }, (_, index) => ({ id: index + 1, title: `Memory ${index + 1}`, classify: index === 13 ? 'City' : 'Beach', cover: '/live/xocs-current-hero.jpg', create_time: '2026-10-08', introduction: null, url: null, link_type: 'lovePhoto' }));
-const notes = Array.from({ length: 11 }, (_, index) => ({ id: index + 1, username: 'Lin', content: `Moment ${index + 1}: an ordinary day worth keeping.`, image_path: index === 0 ? '/legacy/avatar.jpg' : null, create_time: '2026-10-08', user_id: 1, is_public: 1 }));
+const notes = Array.from({ length: 11 }, (_, index) => ({ id: index + 1, username: 'Lin', content: `Moment ${index + 1}: an ordinary day worth keeping.`, image_path: index === 0 ? '/legacy/avatar.jpg' : null, create_time: '2026-10-08', user_id: 1, is_public: 1, like_count: 0 }));
 const paged = (items, page, size) => ({ items: items.slice((page - 1) * size, page * size), page, size, total: items.length });
 
 async function fixtures(page, state) {

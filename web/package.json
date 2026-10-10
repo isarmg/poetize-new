@@ -10,7 +10,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test:unit": "node --test tests/display.test.mjs",
+    "test:unit": "node --test tests/*.test.mjs",
     "test:language": "npm run build && node tests/language.mjs",
     "test:admin": "npm run build && node tests/admin-layout.mjs && node tests/account-settings.mjs",
     "test:public": "npm run build && node tests/public-layout.mjs && node tests/anonymous-comments.mjs"

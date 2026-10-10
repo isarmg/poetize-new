@@ -1,3 +1,4 @@
+import { isFamilies, isLinkClasses, isLinkPage, isNotePage, type Family, type LinkClass, type Note } from './public-contracts';
 import { t } from '@xcss/web/admin-ui/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { publicErrorMessage, request, type Page } from './api';
@@ -6,9 +7,6 @@ import { PhotoGrid, type PhotoItem } from './PhotoGallery';
 import { PublicChrome } from './PublicChrome';
 import { PublicComments } from './PublicComments';
 
-type Family = { id: number; bg_cover: string | null; man_cover: string | null; woman_cover: string | null; man_name: string | null; woman_name: string | null; timing: string | null; countdown_title: string | null; countdown_time: string | null; family_info: string | null };
-type Note = { id: number; username: string | null; content: string; image_path: string | null; create_time: string | null };
-type PhotoClass = { classify: string; count: number };
 type Tab = 'notes' | 'photos' | 'wishes' | 'families';
 
 function dateValue(value: string | null | undefined) {
@@ -38,7 +36,7 @@ export function LovePage() {
   const [noteBusy, setNoteBusy] = useState(false);
   const [noteFailure, setNoteFailure] = useState('');
   const [noteVersion, setNoteVersion] = useState(0);
-  const [classes, setClasses] = useState<PhotoClass[]>([]);
+  const [classes, setClasses] = useState<LinkClass[]>([]);
   const [classFailure, setClassFailure] = useState('');
   const [classify, setClassify] = useState('');
   const [photoPage, setPhotoPage] = useState(1);
@@ -55,7 +53,7 @@ export function LovePage() {
   useEffect(() => {
     const controller = new AbortController();
     setFamilyFailure('');
-    void request<Family[]>('/api/v1/family', { signal: controller.signal })
+    void request('/api/v1/family', isFamilies, { signal: controller.signal })
       .then(value => { if (!controller.signal.aborted) setFamilies(value); })
       .catch(reason => { if (!controller.signal.aborted) setFamilyFailure(publicErrorMessage(reason, t('故事加载失败', 'Unable to load stories'))); });
     return () => controller.abort();
@@ -68,7 +66,7 @@ export function LovePage() {
     if (tab !== 'notes') return;
     const controller = new AbortController();
     setNoteBusy(true); setNoteFailure('');
-    void request<Page<Note>>(`/api/v1/notes/page?page=${notePage}&size=10`, { signal: controller.signal })
+    void request(`/api/v1/notes/page?page=${notePage}&size=10`, isNotePage, { signal: controller.signal })
       .then(value => { if (!controller.signal.aborted) setNotes(value); })
       .catch(reason => { if (!controller.signal.aborted) setNoteFailure(publicErrorMessage(reason, t('记录加载失败', 'Unable to load entries'))); })
       .finally(() => { if (!controller.signal.aborted) setNoteBusy(false); });
@@ -76,7 +74,7 @@ export function LovePage() {
   }, [tab, notePage, noteVersion]);
   useEffect(() => {
     const controller = new AbortController(); setClassFailure('');
-    void request<PhotoClass[]>('/api/v1/links/classes?kind=lovePhoto', { signal: controller.signal })
+    void request('/api/v1/links/classes?kind=lovePhoto', isLinkClasses, { signal: controller.signal })
       .then(value => { if (!controller.signal.aborted) setClasses(value); })
       .catch(reason => { if (!controller.signal.aborted) setClassFailure(publicErrorMessage(reason, t('相册分类加载失败', 'Unable to load photo categories'))); });
     return () => controller.abort();
@@ -85,7 +83,7 @@ export function LovePage() {
     if (tab !== 'photos') return;
     const controller = new AbortController(); setPhotoBusy(true); setPhotoFailure('');
     const filter = classify ? `&classify=${encodeURIComponent(classify)}` : '';
-    void request<Page<PhotoItem>>(`/api/v1/links/page?kind=lovePhoto&page=${photoPage}&size=12${filter}`, { signal: controller.signal })
+    void request(`/api/v1/links/page?kind=lovePhoto&page=${photoPage}&size=12${filter}`, isLinkPage, { signal: controller.signal })
       .then(value => {
         if (controller.signal.aborted) return;
         setPhotoTotal(value.total);

@@ -1,3 +1,4 @@
+import { isArticlePage, isCategories, isLinkClasses, isLinkPage, isLinks, isNotePage, isPublicLabels, isSiteInfo, isWallPost, isWallPosts, type Link, type LinkClass, type Note, type WallPost } from './public-contracts';
 import { DisplayError } from './api';
 import { publicErrorMessage } from './api';
 import { t } from '@xcss/web/admin-ui/i18n';
@@ -9,9 +10,6 @@ import {PublicComments} from './PublicComments';
 import {PhotoGrid} from './PhotoGallery';
 import {LovePage} from './LovePage';
 
-type Note={id:number;user_id:number|null;username:string|null;content:string;image_path:string|null;like_count:number;is_public:number;create_time:string|null};
-type WallPost={id:number;user_id:number|null;username:string|null;avatar:string|null;message:string;image_path:string|null;create_time:string|null};
-type Link={id:number;title:string|null;classify:string|null;cover:string|null;url:string|null;introduction:string|null;link_type:string|null;create_time:string|null};
 function safeHttpUrl(value:string|null){if(!value)return null;try{const parsed=new URL(value,window.location.origin);return ['http:','https:'].includes(parsed.protocol)?parsed.href:null;}catch{return null;}}
 
 function Shell({title,subtitle,children}:{title:string;subtitle?:string;children:ReactNode}){
@@ -22,7 +20,7 @@ function JourneyPage(){
   const [result,setResult]=useState<Page<ArticleSummary>|null>(null);
   const [page,setPage]=useState(1);
   const [error,setError]=useState('');
-  useEffect(()=>{const controller=new AbortController();void request<Page<ArticleSummary>>(`/api/v1/articles?page=${page}&size=20`,{signal:controller.signal}).then(setResult).catch(()=>{if(!controller.signal.aborted)setError(t("游记加载失败", "Unable to load travels"));});return()=>controller.abort();},[page]);
+  useEffect(()=>{const controller=new AbortController();void request(`/api/v1/articles?page=${page}&size=20`, isArticlePage,{signal:controller.signal}).then(setResult).catch(()=>{if(!controller.signal.aborted)setError(t("游记加载失败", "Unable to load travels"));});return()=>controller.abort();},[page]);
   return <PublicChrome title="xocs" cover="/live/xocs-current-menory.jpg"><div className="journey-page"><header><strong>{t("时间线", "Timeline")}</strong><small>{t("灵魂在路上", "The soul is walking")}</small></header>{error&&<p role="alert">{error}</p>}<div className="journey-grid">{result?.items.map((item,index)=><a href={`/article/${item.id}`} className="journey-item" key={item.id}><span className="journey-image">{safeHttpUrl(item.article_cover)?<img src={safeHttpUrl(item.article_cover)||''} alt="" loading="lazy"/>:<span>xocs</span>}</span><strong>{item.article_title}</strong><small>{item.create_time?.slice(0,16)||t("最近", "Recently")} <span>{result.total-index-(page-1)*20}</span></small></a>)}</div>{result?.items.length===0&&<p className="journey-empty">{t("时光里的故事，正在路上。", "More stories are on their way.")}</p>}{result&&result.total>20&&<div className="pager"><button disabled={page<=1} onClick={()=>setPage(value=>value-1)}>{t("上一页", "Previous page")}</button><span>{t("第 {0} 页", "Page {0}", [page])}</span><button disabled={page*20>=result.total} onClick={()=>setPage(value=>value+1)}>{t("下一页", "Next page")}</button></div>}</div></PublicChrome>;
 }
 
@@ -30,7 +28,7 @@ function Wall(){
   const jotting=window.location.pathname==='/jotting';
   const [result,setResult]=useState<Page<Note>|null>(null),[page,setPage]=useState(1);
   const [error,setError]=useState(''),[lightbox,setLightbox]=useState<string|null>(null);
-  useEffect(()=>{const controller=new AbortController();setError('');void request<Page<Note>>(`/api/v1/notes/page?page=${page}`,{signal:controller.signal}).then(value=>{if(!controller.signal.aborted)setResult(value);}).catch(reason=>{if(!controller.signal.aborted)setError(publicErrorMessage(reason,t('内容加载失败','Unable to load content')));});return()=>controller.abort();},[page]);
+  useEffect(()=>{const controller=new AbortController();setError('');void request(`/api/v1/notes/page?page=${page}`, isNotePage,{signal:controller.signal}).then(value=>{if(!controller.signal.aborted)setResult(value);}).catch(reason=>{if(!controller.signal.aborted)setError(publicErrorMessage(reason,t('内容加载失败','Unable to load content')));});return()=>controller.abort();},[page]);
   return <PublicChrome title={jotting?'xocs':t('微言','Posts')} cover={jotting?'/live/xocs-current-jotting.png':undefined}><div className="wall-layout wall-reading-layout"><div className="wall-list">
     {error&&<p role="alert">{error}</p>}{result?.items.map(item=><article className="wall-card" key={item.id}><small>{item.username||t('站长','Site owner')} · {item.create_time||t('最近','Recently')}</small><p>{item.content}</p>{safeImageUrl(item.image_path)&&<button type="button" className="wall-photo-button" onClick={()=>setLightbox(safeImageUrl(item.image_path))} aria-label={t('放大图片','Enlarge image')}><img src={safeImageUrl(item.image_path)!} alt={t('动态图片','Post image')} loading="lazy"/></button>}</article>)}
     {result?.items.length===0&&<div className="public-empty-state"><h3>{t('还没有记录。','No entries yet.')}</h3><p>{t('新的日常记录正在路上。','New everyday stories are on their way.')}</p></div>}
@@ -43,24 +41,23 @@ function MessagePage(){
   const [draft,setDraft]=useState('');
   const [error,setError]=useState('');
   const [busy,setBusy]=useState(false);
-  useEffect(()=>{const controller=new AbortController();void request<WallPost[]>('/api/v1/tree-hole',{signal:controller.signal}).then(setItems).catch(()=>{if(!controller.signal.aborted)setError(t("留言加载失败", "Unable to load messages"));});return()=>controller.abort();},[]);
+  useEffect(()=>{const controller=new AbortController();void request('/api/v1/tree-hole', isWallPosts,{signal:controller.signal}).then(setItems).catch(()=>{if(!controller.signal.aborted)setError(t("留言加载失败", "Unable to load messages"));});return()=>controller.abort();},[]);
   async function publish(event:FormEvent){
     event.preventDefault();
     if(!draft.trim()||busy)return;
     setBusy(true);setError('');
-    try{const saved=await request<WallPost>('/api/v1/tree-hole/guest',{method:'POST',body:JSON.stringify({message:draft.trim()})});setItems(current=>[saved,...current]);setDraft('');}
+    try{const saved=await request('/api/v1/tree-hole/guest', isWallPost,{method:'POST',body:JSON.stringify({message:draft.trim()})});setItems(current=>[saved,...current]);setDraft('');}
     catch(reason){setError(publicErrorMessage(reason, t("发送失败", "Unable to send")));}
     finally{setBusy(false);}
   }
   return <PublicChrome plainHeader title={t("留言板", "Message board")}><div className="message-page"><section className="message-hero"><div className="message-barrage" aria-label={t("留言弹幕", "Message wall")}>{items.map((item,index)=><div key={item.id} className="message-barrage-item" style={{animationDelay:`${-(index%10)*2.3}s`,top:`${8+(index%7)*12}%`}}>{safeHttpUrl(item.avatar)&&<img src={safeHttpUrl(item.avatar)||''} alt=""/>}<span>{item.message}</span></div>)}</div><div className="message-form-wrap"><h1>{t("弹幕", "Message wall")}</h1><form onSubmit={event=>void publish(event)}><input aria-label={t("发送弹幕", "Send a message")} maxLength={60} value={draft} onChange={event=>setDraft(event.target.value)} placeholder={t("留下点什么啦～", "Leave a message…")}/><button disabled={busy||!draft.trim()}>{busy?t("发射中…", "Sending…"):t("发射", "Send")}</button></form><p className="message-anonymous">{t("弹幕将匿名发布，无需登录。", "Messages are posted anonymously. No account is needed.")}</p>{error&&<p role="alert">{error}</p>}</div></section><div className="message-comment-wrap"><PublicComments kind="message"/></div></div></PublicChrome>;
 }
 
-type LinkClass={classify:string;count:number};
 function TravelPage(){
   const [classes,setClasses]=useState<LinkClass[]>([]);const [selected,setSelected]=useState('');const [page,setPage]=useState(1);
   const [result,setResult]=useState<Page<Link>|null>(null);const [items,setItems]=useState<Link[]>([]);const [lightbox,setLightbox]=useState<string|null>(null);const [error,setError]=useState('');
-  useEffect(()=>{void request<LinkClass[]>('/api/v1/links/classes?kind=lovePhoto').then(value=>{setClasses(value);setSelected(current=>current||value[0]?.classify||'');}).catch(()=>setError(t("相册分类加载失败", "Unable to load photo categories")));},[]);
-  useEffect(()=>{const controller=new AbortController();const filter=selected?`&classify=${encodeURIComponent(selected)}`:'';void request<Page<Link>>(`/api/v1/links/page?kind=lovePhoto&page=${page}&size=12${filter}`,{signal:controller.signal}).then(value=>{if(!controller.signal.aborted){setResult(value);setItems(current=>page===1?value.items:[...current,...value.items]);}}).catch(()=>{if(!controller.signal.aborted)setError(t("相册加载失败", "Unable to load photos"));});return()=>controller.abort();},[selected,page]);
+  useEffect(()=>{void request('/api/v1/links/classes?kind=lovePhoto', isLinkClasses).then(value=>{setClasses(value);setSelected(current=>current||value[0]?.classify||'');}).catch(()=>setError(t("相册分类加载失败", "Unable to load photo categories")));},[]);
+  useEffect(()=>{const controller=new AbortController();const filter=selected?`&classify=${encodeURIComponent(selected)}`:'';void request(`/api/v1/links/page?kind=lovePhoto&page=${page}&size=12${filter}`, isLinkPage,{signal:controller.signal}).then(value=>{if(!controller.signal.aborted){setResult(value);setItems(current=>page===1?value.items:[...current,...value.items]);}}).catch(()=>{if(!controller.signal.aborted)setError(t("相册加载失败", "Unable to load photos"));});return()=>controller.abort();},[selected,page]);
   function choose(value:string){setSelected(value);setPage(1);setItems([]);}
   return <PublicChrome plainHeader title={t("时光相册", "Photo album")}><div className="travel-page"><section className="travel-banner"><div><h1>{t("时光相册", "Photo album")}</h1><h2>{t("每一张照片都是一次美好的记忆", "Every photo holds a memory")}</h2></div></section><div className="travel-content"><div className="original-tag-panel">{classes.map(item=><button className={selected===item.classify?'active':''} onClick={()=>choose(item.classify)} key={item.classify}>{item.classify} {item.count}</button>)}</div><h2>{selected||t("全部照片", "All photos")}</h2>{error&&<p role="alert">{error}</p>}<PhotoGrid items={items} onPreview={setLightbox}/>{result&&items.length<result.total?<button className="travel-more" onClick={()=>setPage(value=>value+1)}>{t("下一页", "Next page")}</button>:result&&<p className="travel-end">{t("~~到底啦~~", "~~You have reached the end~~")}</p>}</div></div><ImageLightbox src={lightbox} onClose={()=>setLightbox(null)}/></PublicChrome>;
 }
@@ -70,7 +67,7 @@ function Favorites({friendOnly=false}:{friendOnly?:boolean}){
   const [tab,setTab]=useState<'friends'|'music'|'favorites'>(friendOnly?'friends':new URLSearchParams(window.location.search).get('tab')==='favorites'?'favorites':'friends');
   const [items,setItems]=useState<Link[]>([]);const [friends,setFriends]=useState<Link[]>([]);const [error,setError]=useState('');
   const [site,setSite]=useState<SiteInfo|null>(null);
-  useEffect(()=>{void request<Link[]>('/api/v1/links?kind=favorites').then(setItems).catch(()=>setError(t("收藏内容加载失败", "Unable to load favorites")));void request<Link[]>('/api/v1/links?kind=friendUrl').then(setFriends).catch(()=>setError(t("友链加载失败", "Unable to load friend links")));void request<SiteInfo>('/api/v1/site').then(setSite).catch(()=>{});},[]);
+  useEffect(()=>{void request('/api/v1/links?kind=favorites', isLinks).then(setItems).catch(()=>setError(t("收藏内容加载失败", "Unable to load favorites")));void request('/api/v1/links?kind=friendUrl', isLinks).then(setFriends).catch(()=>setError(t("友链加载失败", "Unable to load friend links")));void request('/api/v1/site', isSiteInfo).then(setSite).catch(()=>{});},[]);
   const groups=items.reduce<Record<string,Link[]>>((result,item)=>{const name=item.classify||t("我的收藏", "My favorites");(result[name]??=[]).push(item);return result;},{});
   const friendGroups=friends.reduce<Record<string,Link[]>>((result,item)=>{const name=item.classify||t("🥇友情链接", "🥇 Friend links");(result[name]??=[]).push(item);return result;},{});
   return <PublicChrome plainHeader title={friendOnly?t("友人帐", "Friends"):t("百宝箱", "Toolbox")}><div className="favorite-page">
@@ -93,7 +90,7 @@ function MusicPage(){
 }
 function MusicBody(){
   const [items,setItems]=useState<Link[]>([]);const [selected,setSelected]=useState(0);
-  useEffect(()=>{void request<Link[]>('/api/v1/links?kind=funny').then(setItems).catch(()=>{});},[]);
+  useEffect(()=>{void request('/api/v1/links?kind=funny', isLinks).then(setItems).catch(()=>{});},[]);
   const playable=items.filter(item=>safeHttpUrl(item.url));
   return <div className="music-layout"><div className="wall-card"><h2>{playable[selected]?.title||t("选择一首曲目", "Select a track")}</h2>{playable[selected]?.cover&&safeHttpUrl(playable[selected].cover)&&<img className="music-cover" src={safeHttpUrl(playable[selected].cover)||''} alt=""/>}{playable[selected]&&<audio key={playable[selected].id} controls src={safeHttpUrl(playable[selected].url)||undefined} onEnded={()=>setSelected(index=>Math.min(index+1,playable.length-1))}/>}</div><div className="wall-card"><h2>{t("播放列表", "Playlist")}</h2>{playable.map((item,index)=><button className={index===selected?'selected':''} key={item.id} onClick={()=>setSelected(index)}>{item.title||t("曲目 {0}", "Track {0}", [index+1])}<small>{item.classify}</small></button>)}{playable.length===0&&<p>{t("暂无曲目。", "No tracks yet.")}</p>}</div></div>;
 }
@@ -116,9 +113,9 @@ function Categories(){
   const [page,setPage]=useState(1);
   const [articles,setArticles]=useState<Page<ArticleSummary>|null>(null);
   const [error,setError]=useState('');
-  useEffect(()=>{void request<Category[]>('/api/v1/categories').then(setCategories).catch(()=>setError(t("分类加载失败", "Unable to load categories")));},[]);
-  useEffect(()=>{if(selected<=0){setLabels([]);return;}const controller=new AbortController();void request<PublicLabel[]>(`/api/v1/labels?sort_id=${selected}`,{signal:controller.signal}).then(setLabels).catch(()=>{if(!controller.signal.aborted)setError(t("标签加载失败", "Unable to load tags"));});return()=>controller.abort();},[selected]);
-  useEffect(()=>{const controller=new AbortController();const filter=selected===-1?'&recommended=true':selected>0?`&sort_id=${selected}${label>0?`&label_id=${label}`:''}`:'';void request<Page<ArticleSummary>>(`/api/v1/articles?page=${page}&size=12${filter}`,{signal:controller.signal}).then(setArticles).catch(()=>{if(!controller.signal.aborted)setError(t("文章加载失败", "Unable to load articles"));});return()=>controller.abort();},[selected,label,page]);
+  useEffect(()=>{void request('/api/v1/categories', isCategories).then(setCategories).catch(()=>setError(t("分类加载失败", "Unable to load categories")));},[]);
+  useEffect(()=>{if(selected<=0){setLabels([]);return;}const controller=new AbortController();void request(`/api/v1/labels?sort_id=${selected}`, isPublicLabels,{signal:controller.signal}).then(setLabels).catch(()=>{if(!controller.signal.aborted)setError(t("标签加载失败", "Unable to load tags"));});return()=>controller.abort();},[selected]);
+  useEffect(()=>{const controller=new AbortController();const filter=selected===-1?'&recommended=true':selected>0?`&sort_id=${selected}${label>0?`&label_id=${label}`:''}`:'';void request(`/api/v1/articles?page=${page}&size=12${filter}`, isArticlePage,{signal:controller.signal}).then(setArticles).catch(()=>{if(!controller.signal.aborted)setError(t("文章加载失败", "Unable to load articles"));});return()=>controller.abort();},[selected,label,page]);
   function choose(value:number){setSelected(value);setLabel(0);setPage(1);window.history.replaceState(null,'',value===-1?'/sort?recommended=1':value>0?`/sort?sort_id=${value}`:'/sort');}
   function chooseLabel(value:number){setLabel(value);setPage(1);window.history.replaceState(null,'',value>0?`/sort?sort_id=${selected}&label_id=${value}`:`/sort?sort_id=${selected}`);}
   return <Shell title={categories.find(item=>item.id===selected)?.sort_name||t("文章分类", "Article categories")} subtitle={t("就算风吹散了冰雪，想念也会留下来。", "Memories remain after the snow has melted.")}>
@@ -132,14 +129,14 @@ function Highlight({text,term}:{text:string;term:string}){if(!term)return text;c
 
 function SearchPage(){
   const initial=new URLSearchParams(window.location.search).get('q')||'';const [draft,setDraft]=useState(initial);const [term,setTerm]=useState(initial);const [page,setPage]=useState(1);const [result,setResult]=useState<Page<ArticleSummary>|null>(null);const [error,setError]=useState('');
-  useEffect(()=>{const controller=new AbortController();if(!term.trim()){setResult(null);return()=>controller.abort();}void request<Page<ArticleSummary>>(`/api/v1/articles?search=${encodeURIComponent(term)}&page=${page}&size=12`,{signal:controller.signal}).then(setResult).catch(()=>{if(!controller.signal.aborted)setError(t("搜索失败", "Search failed"));});return()=>controller.abort();},[term,page]);
+  useEffect(()=>{const controller=new AbortController();if(!term.trim()){setResult(null);return()=>controller.abort();}void request(`/api/v1/articles?search=${encodeURIComponent(term)}&page=${page}&size=12`, isArticlePage,{signal:controller.signal}).then(setResult).catch(()=>{if(!controller.signal.aborted)setError(t("搜索失败", "Search failed"));});return()=>controller.abort();},[term,page]);
   function submit(event:FormEvent){event.preventDefault();setPage(1);setTerm(draft.trim());window.history.replaceState(null,'',`/search?q=${encodeURIComponent(draft.trim())}`);}
   return <Shell title={t("搜索文章", "Search articles")} subtitle={t("在文字里寻找熟悉的故事。", "Find familiar stories in these words.")}><form className="search-form" onSubmit={submit}><input aria-label={t("搜索标题或正文", "Search titles or content")} value={draft} maxLength={200} placeholder={t("搜索标题或正文", "Search titles or content")} onChange={event=>setDraft(event.target.value)}/><button type="submit">{t("搜索", "Search")}</button></form>{error&&<p role="alert">{error}</p>}{term&&<p className="original-search-count">“{term}{t("” 找到 ", "” found ")}{result?.total??0}{t(" 篇文章；标题匹配优先。", " articles; title matches come first.")}</p>}<div className="original-article-list"><h2>{t("🍃 发现", "🍃 Discover")}</h2>{(!term||result?.items.length===0)&&<div className="public-empty-state search-empty-state"><span aria-hidden="true">⌕</span><h3>{term?t('没有找到匹配的文章','No matching articles'):t('输入关键词开始搜索','Enter a keyword to start searching')}</h3><p>{term?t('试试其它关键词，或浏览全部文章。','Try another keyword, or browse all articles.'):t('可以搜索文章标题，也可以寻找正文里的一句话。','Search for an article title or a phrase from its content.')}</p><a href="/sort">{t('浏览全部文章','Browse all articles')} <span aria-hidden="true">↗</span></a></div>}{result?.items.map(item=><a className="original-list-card" href={`/article/${item.id}`} key={item.id}><div className="original-list-cover">{safeHttpUrl(item.article_cover)?<img src={safeHttpUrl(item.article_cover)||''} alt="" loading="lazy"/>:<span>{t("遇事不决，可问春风", "Let the spring breeze guide you")}</span>}</div><div className="original-list-body"><small>{item.search_snippet?t("正文匹配", "Content match"):t("标题匹配", "Title match")} · {item.create_time}</small><h3><Highlight text={item.article_title} term={term}/></h3>{item.search_snippet&&<p className="search-snippet"><Highlight text={item.search_snippet} term={term}/></p>}<span className="original-list-tag">{item.view_status?t("公开", "Public"):t("需要访问密码", "Access password required")}</span></div></a>)}{result&&<div className="pager"><button disabled={page<=1} onClick={()=>setPage(value=>value-1)}>{t("上一页", "Previous page")}</button><span>{t("第 {0} 页", "Page {0}", [page])}</span><button disabled={page*12>=result.total} onClick={()=>setPage(value=>value+1)}>{t("下一页", "Next page")}</button></div>}</div></Shell>;
 }
 
 function About(){
   const [site,setSite]=useState<SiteInfo|null>(null);const [step,setStep]=useState(0);const [reply,setReply]=useState<string[]>([]);
-  useEffect(()=>{void request<SiteInfo>('/api/v1/site').then(setSite).catch(()=>{});},[]);
+  useEffect(()=>{void request('/api/v1/site', isSiteInfo).then(setSite).catch(()=>{});},[]);
   const chapters=[{talk:['Hi, there👋',t("欢迎来到这里。这里记录生活，也收藏一些喜欢的文字。", "Welcome. This is a place for stories from life and words we love.")],choices:[t("然后呢？ 😃", "Tell me more 😃"),t("少废话！ 🙄", "Get to the point 🙄")]},{talk:['😘',t("本站平时用于交流、分享和学习新知识。", "This site is for conversation, sharing, and learning."),t("如果内容涉及侵权，请联系站长处理，谢谢！", "Please contact the site owner about any copyright concerns.")],choices:[t("这个网站有什么用吗？ 😂", "What is this site for? 😂")]},{talk:[t("拥有自己的独立网站难道不酷吗🚀", "Having your own website is pretty cool 🚀"),t("那就摸鱼吧👋", "Time to relax 👋"),t("想说点什么，可以在留言板留下足迹🥝", "Leave a note on the message board 🥝")],choices:[]}];
   function answer(choice:string){setReply(current=>[...current,choice]);if(step===0&&choice.includes(t("少废话", "Get to the point")))setStep(3);else setStep(value=>value+1);}
   return <Shell title={t("关于", "About")}><div className="about-dialog-page"><h1>{t("两只毛驴鸣翠柳", "xocs")}</h1><section className="about-dialog"><h2>{t("与 ", "and ")}{site?.web_name||'xocs'}{t(" 对话中...", " Chatting…")}</h2>{chapters.slice(0,Math.min(step+1,chapters.length)).map((chapter,index)=><div key={index}><div className="about-bubbles">{chapter.talk.map(line=><p className="about-talk" key={line}>{line}</p>)}</div>{reply[index]&&<p className="about-reply">{reply[index]}</p>}</div>)}{step<chapters.length&&<div className="about-choices">{chapters[step].choices.map(choice=><button type="button" key={choice} onClick={()=>answer(choice)}>{choice}</button>)}</div>}{step>=chapters.length&&<p className="about-talk">👋 👋 👋</p>}{site?.notices&&<aside>{site.notices}</aside>}</section></div></Shell>;

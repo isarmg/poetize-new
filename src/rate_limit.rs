@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::http::StatusCode;
 use sha2::{Digest, Sha256};
-use sqlx::SqlitePool;
+use sqlx::{SqliteConnection, SqlitePool};
 
 use crate::{AppError, db_error};
 
@@ -13,6 +13,15 @@ pub(crate) async fn record_attempt(
     key: &[u8],
     limit: i64,
 ) -> Result<(), AppError> {
+    let mut connection = pool.acquire().await.map_err(db_error)?;
+    record_attempt_on(&mut connection, key, limit).await
+}
+
+pub(crate) async fn record_attempt_on(
+    connection: &mut SqliteConnection,
+    key: &[u8],
+    limit: i64,
+) -> Result<(), AppError> {
     let now = i64::try_from(
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -20,11 +29,10 @@ pub(crate) async fn record_attempt(
             .as_secs(),
     )
     .map_err(|_| AppError(StatusCode::INTERNAL_SERVER_ERROR, "时钟不可用"))?;
-    // Keep the existing physical table name for xocs-db-v1 compatibility.
     // Anonymous publishing and protected article access use this limiter.
     let count: i64 = sqlx::query_scalar("INSERT INTO member_login_failures(failure_key,failures,expires_at) VALUES(?,1,?) ON CONFLICT(failure_key) DO UPDATE SET failures=CASE WHEN expires_at<=? THEN 1 ELSE failures+1 END,expires_at=CASE WHEN expires_at<=? THEN excluded.expires_at ELSE expires_at END RETURNING failures")
         .bind(key).bind(now + WINDOW_SECONDS).bind(now).bind(now)
-        .fetch_one(pool).await.map_err(db_error)?;
+        .fetch_one(connection).await.map_err(db_error)?;
     if count > limit {
         return Err(AppError(
             StatusCode::TOO_MANY_REQUESTS,
@@ -42,4 +50,26 @@ pub(crate) fn attempt_key(kind: &str, ip: &str, subject: &str) -> Vec<u8> {
     hash.update([0]);
     hash.update(subject.as_bytes());
     hash.finalize().to_vec()
+}
+
+/// Only an explicitly configured immediate peer may identify a visitor.
+/// The proxy must overwrite X-Real-IP; forwarded chains are never interpreted.
+pub(crate) fn visitor_ip(
+    peer: std::net::SocketAddr,
+    headers: &axum::http::HeaderMap,
+    trusted_proxies: &[std::net::IpAddr],
+) -> Result<std::net::IpAddr, AppError> {
+    if !trusted_proxies.contains(&peer.ip()) {
+        return Ok(peer.ip());
+    }
+    let mut values = headers.get_all("x-real-ip").iter();
+    let ip = values
+        .next()
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<std::net::IpAddr>().ok());
+    if values.next().is_some() {
+        return Err(crate::invalid("可信代理必须提供单个有效 X-Real-IP"));
+    }
+    ip.filter(|ip| !ip.is_unspecified() && !ip.is_multicast())
+        .ok_or_else(|| crate::invalid("可信代理必须提供单个有效 X-Real-IP"))
 }

@@ -1,4 +1,5 @@
 import { chromium, expect } from '@playwright/test';
+import { site } from './browser-fixtures.mjs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +15,7 @@ try {
     const url = new URL(route.request().url());
     if (url.pathname.startsWith('/api/')) {
       const payload = url.pathname === '/api/v1/site'
-        ? { web_name: 'XOCS', web_title: '测试站点', notices: null, footer: null, background_image: null, avatar: null }
+        ? { ...site, web_title: '测试站点' }
         : url.pathname === '/api/v1/home-sections' ? [{id:1,title:'最新',kind:'latest',sort_id:null,priority:0,enabled:true}]
         : url.pathname === '/api/v1/categories' ? [{id:1,sort_name:'测试分类',sort_description:null,priority:0,article_count:0}]
         : url.pathname === '/api/v1/articles' ? { items: [], total: 0, page: 1, size: 12 }

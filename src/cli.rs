@@ -342,6 +342,7 @@ async fn execute(cli: Cli, log_layer: &xcss::log::XcssStructuredLayer) -> anyhow
                     admin,
                     origin,
                     media,
+                    trusted_proxies: settings.trusted_proxies.clone(),
                 };
                 let app = router(state, web)?;
                 let signals = xcss::server_runtime::ProcessSignals::install()?;
