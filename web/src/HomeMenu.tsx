@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useId, useRef, useState} from 'react';
-import {t} from '@xcss/admin-ui/i18n';
+import {t} from '@xcss/web/admin-ui/i18n';
 
 export function HomeMenu({headerHidden, menuOpen}: {headerHidden: boolean; menuOpen: boolean}) {
   const [open, setOpen] = useState(false);

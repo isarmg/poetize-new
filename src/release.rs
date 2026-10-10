@@ -1,12 +1,12 @@
 use sha2::{Digest, Sha256};
-use xcss_contracts::{
+use xcss::contracts::{
     ReleaseIdentity, StateContract, StateResource, StateResourceKind, StateSchemaIdentity,
 };
 
 pub fn state_contract_bytes() -> anyhow::Result<Vec<u8>> {
     let schema = crate::schema::current_identity()?;
     let contract = StateContract {
-        contract_version: xcss_contracts::STATE_CONTRACT_VERSION,
+        contract_version: xcss::contracts::STATE_CONTRACT_VERSION,
         application: crate::PRODUCT_ID.into(),
         application_version: env!("CARGO_PKG_VERSION").into(),
         source_revision: env!("XOCS_SOURCE_REVISION").into(),
@@ -39,8 +39,8 @@ pub fn state_contract_bytes() -> anyhow::Result<Vec<u8>> {
         companion_contracts: vec![],
     };
     contract.validate().map_err(|_| {
-        crate::CliFailure(xcss_server_cli::ErrorEnvelope::with_code(
-            xcss_server_cli::ErrorCode::new("release_identity_unbound").expect("static code"),
+        crate::CliFailure(xcss::server_cli::ErrorEnvelope::with_code(
+            xcss::server_cli::ErrorCode::new("release_identity_unbound").expect("static code"),
             "This development binary is not bound to a complete source revision.",
         ))
     })?;

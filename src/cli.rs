@@ -16,9 +16,9 @@ use std::{
     path::PathBuf,
     sync::Arc,
 };
-use xcss_admin_auth::AdministratorOriginMode;
-use xcss_admin_core::AdministratorService;
-use xcss_admin_sqlite::SqliteAdministratorStore;
+use xcss::admin_auth::AdministratorOriginMode;
+use xcss::admin_core::AdministratorService;
+use xcss::admin_sqlite::SqliteAdministratorStore;
 
 #[derive(Parser)]
 #[command(about = "XOCS Rust service", version, long_version = concat!(env!("CARGO_PKG_VERSION"), " target=", env!("XOCS_BUILD_TARGET"), " source=", env!("XOCS_SOURCE_REVISION")))]
@@ -94,9 +94,9 @@ pub(crate) async fn run() -> std::process::ExitCode {
             return std::process::ExitCode::SUCCESS;
         }
         Err(_) => {
-            return xcss_server_cli::report_error(
-                &xcss_server_cli::ErrorEnvelope::new(
-                    xcss_server_cli::HttpStatus::BadRequest,
+            return xcss::server_cli::report_error(
+                &xcss::server_cli::ErrorEnvelope::new(
+                    xcss::server_cli::HttpStatus::BadRequest,
                     "Command arguments do not satisfy the current contract.",
                 ),
                 machine_output,
@@ -119,11 +119,11 @@ pub(crate) async fn run() -> std::process::ExitCode {
         match current {
             Ok(path) => cli.config = Some(path),
             Err(_) => {
-                return xcss_server_cli::report_error(
-                    &xcss_config::ConfigError::new(
-                        xcss_config::Reason::InvalidValue,
+                return xcss::server_cli::report_error(
+                    &xcss::config::ConfigError::new(
+                        xcss::config::Reason::InvalidValue,
                         "/config",
-                        xcss_config::ConfigSource::CommandLine,
+                        xcss::config::ConfigSource::CommandLine,
                     )
                     .envelope(),
                     machine_output,
@@ -133,8 +133,7 @@ pub(crate) async fn run() -> std::process::ExitCode {
         }
     }
     use tracing_subscriber::prelude::*;
-    let log_layer =
-        xcss_log::FoundationStructuredLayer::new("xocs").expect("static service identity");
+    let log_layer = xcss::log::XcssStructuredLayer::new("xocs").expect("static service identity");
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -145,30 +144,30 @@ pub(crate) async fn run() -> std::process::ExitCode {
     match execute(cli, &log_layer).await {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
-            let envelope = if let Some(error) = error.downcast_ref::<xcss_config::ConfigError>() {
+            let envelope = if let Some(error) = error.downcast_ref::<xcss::config::ConfigError>() {
                 error.envelope()
-            } else if let Some(error) = error.downcast_ref::<xcss_state_file::Error>() {
-                xcss_server_cli::state_error(error)
-            } else if let Some(error) = error.downcast_ref::<xcss_server_cli::SnapshotError>() {
-                xcss_server_cli::snapshot_error(error)
-            } else if let Some(auth_error) = error.downcast_ref::<xcss_admin_auth::Error>() {
+            } else if let Some(error) = error.downcast_ref::<xcss::state_file::Error>() {
+                xcss::server_cli::state_error(error)
+            } else if let Some(error) = error.downcast_ref::<xcss::server_cli::SnapshotError>() {
+                xcss::server_cli::snapshot_error(error)
+            } else if let Some(auth_error) = error.downcast_ref::<xcss::admin_auth::Error>() {
                 let path = match auth_error {
-                    xcss_admin_auth::Error::InvalidAdministratorUsername => Some("/username"),
-                    xcss_admin_auth::Error::InvalidPassword => Some("/password"),
-                    xcss_admin_auth::Error::InvalidPasswordHash => Some("/password_hash"),
+                    xcss::admin_auth::Error::InvalidAdministratorUsername => Some("/username"),
+                    xcss::admin_auth::Error::InvalidPassword => Some("/password"),
+                    xcss::admin_auth::Error::InvalidPasswordHash => Some("/password_hash"),
                     _ => None,
                 };
                 if let Some(path) = path {
-                    xcss_server_cli::ErrorEnvelope::with_code(
-                        xcss_server_cli::ErrorCode::new("auth.invalid_request")
+                    xcss::server_cli::ErrorEnvelope::with_code(
+                        xcss::server_cli::ErrorCode::new("auth.invalid_request")
                             .expect("static code"),
                         "Administrator credentials do not satisfy the current contract.",
                     )
                     .with_detail("reason", "INVALID_VALUE")
                     .with_detail("path", path)
                 } else {
-                    xcss_server_cli::ErrorEnvelope::with_code(
-                        xcss_server_cli::ErrorCode::new("auth.operation_failed")
+                    xcss::server_cli::ErrorEnvelope::with_code(
+                        xcss::server_cli::ErrorCode::new("auth.operation_failed")
                             .expect("static code"),
                         "The administrator operation could not be completed.",
                     )
@@ -176,37 +175,37 @@ pub(crate) async fn run() -> std::process::ExitCode {
             } else if let Some(error) = error.downcast_ref::<CliFailure>() {
                 error.0.clone()
             } else if error
-                .downcast_ref::<xcss_schema_identity::Error>()
+                .downcast_ref::<xcss::schema_identity::Error>()
                 .is_some()
                 || matches!(
-                    error.downcast_ref::<xcss_sqlite::Error>(),
+                    error.downcast_ref::<xcss::sqlite::Error>(),
                     Some(
-                        xcss_sqlite::Error::SchemaBudgetExceeded
-                            | xcss_sqlite::Error::ProductMetadataTableMissing
-                            | xcss_sqlite::Error::ProductMetadataStorageClass { .. }
-                            | xcss_sqlite::Error::SchemaIdentity(_)
+                        xcss::sqlite::Error::SchemaBudgetExceeded
+                            | xcss::sqlite::Error::ProductMetadataTableMissing
+                            | xcss::sqlite::Error::ProductMetadataStorageClass { .. }
+                            | xcss::sqlite::Error::SchemaIdentity(_)
                     )
                 )
             {
-                xcss_server_cli::ErrorEnvelope::with_code(
-                    xcss_server_cli::ErrorCode::new("contract_violation")
+                xcss::server_cli::ErrorEnvelope::with_code(
+                    xcss::server_cli::ErrorCode::new("contract_violation")
                         .expect("static error code"),
                     "The actual database structure does not satisfy the current schema contract.",
                 )
             } else {
                 tracing::error!(%error, "Xocs command failed");
-                xcss_server_cli::ErrorEnvelope::with_code(
-                    xcss_server_cli::ErrorCode::new("xocs.command_failed")
+                xcss::server_cli::ErrorEnvelope::with_code(
+                    xcss::server_cli::ErrorCode::new("xocs.command_failed")
                         .expect("static error code"),
                     "The command failed. Check the service diagnostic log.",
                 )
             };
-            xcss_server_cli::report_error(&envelope, machine_output, 1)
+            xcss::server_cli::report_error(&envelope, machine_output, 1)
         }
     }
 }
 
-async fn execute(cli: Cli, log_layer: &xcss_log::FoundationStructuredLayer) -> anyhow::Result<()> {
+async fn execute(cli: Cli, log_layer: &xcss::log::XcssStructuredLayer) -> anyhow::Result<()> {
     let output_json = cli.json;
     match cli.command {
         Command::Init { database, username } => {
@@ -226,21 +225,21 @@ async fn execute(cli: Cli, log_layer: &xcss_log::FoundationStructuredLayer) -> a
                     database.display()
                 );
             }
-            let username = xcss_admin_auth::normalize_administrator_username(&username)?;
+            let username = xcss::admin_auth::normalize_administrator_username(&username)?;
             let mut password = String::new();
             io::stdin().take(4097).read_to_string(&mut password)?;
 
             let password = password.trim_end_matches(['\r', '\n']);
-            xcss_admin_auth::validate_password(password)?;
-            xcss_server_cli::create_empty_private_directory(&settings.state_directory()?)
+            xcss::admin_auth::validate_password(password)?;
+            xcss::server_cli::create_empty_private_directory(&settings.state_directory()?)
                 .map_err(CliFailure)?;
             let state_directory =
-                xcss_state_file::PrivateStateDirectory::open(settings.state_directory()?)?;
+                xcss::state_file::PrivateStateDirectory::open(settings.state_directory()?)?;
             state_directory.verify_no_pending_maintenance()?;
             let _maintenance = state_directory.try_maintenance_lock()?;
             state_directory.verify_no_pending_maintenance()?;
-            xcss_state_file::PrivateStateDirectory::create(settings.media_path()?)?;
-            xcss_server_cli::create_runtime_log_directory(&settings.state_directory()?)
+            xcss::state_file::PrivateStateDirectory::create(settings.media_path()?)?;
+            xcss::server_cli::create_runtime_log_directory(&settings.state_directory()?)
                 .map_err(CliFailure)?;
             initialize_new_database(&database, &username, password).await?;
             tracing::info!(event = "common.initialization.completed");
@@ -297,27 +296,27 @@ async fn execute(cli: Cli, log_layer: &xcss_log::FoundationStructuredLayer) -> a
                     pool.clone(),
                 )));
                 admin.store().validate_all_administrators().await?;
-                xcss_server_cli::validate_runtime_log_directory(&settings.state_directory()?)
+                xcss::server_cli::validate_runtime_log_directory(&settings.state_directory()?)
                     .map_err(CliFailure)?;
                 let logs = settings.state_directory()?.join("logs");
-                log_layer.set_rotating_file(xcss_log::RotatingLogFile::open(
+                log_layer.set_rotating_file(xcss::log::RotatingLogFile::open(
                     logs,
                     "server",
-                    xcss_log::LogRetention::default(),
+                    xcss::log::LogRetention::default(),
                 )?)?;
                 tracing::info!(event = "common.config.loaded");
-                let scope = xcss_server_runtime::WorkScope::new();
+                let scope = xcss::server_runtime::WorkScope::new();
                 let participant = Arc::new(lifecycle::Lifecycle {
                     scope: scope.clone(),
                     pool: pool.clone(),
                     lock: std::sync::Mutex::new(Some(instance_lock.clone())),
                 });
                 let health_pool = pool.clone();
-                let runtime = xcss_server_runtime::ServerRuntime::builder(
-                    xcss_server_runtime::ProductDescriptor {
+                let runtime = xcss::server_runtime::ServerRuntime::builder(
+                    xcss::server_runtime::ProductDescriptor {
                         id: PRODUCT_ID.into(),
                         version: env!("CARGO_PKG_VERSION").into(),
-                        foundation_revision: env!("XCSS_FOUNDATION_REVISION").into(),
+                        xcss_revision: env!("XCSS_REVISION").into(),
                         profile: "public-content".into(),
                         capabilities: vec!["admin-persistent".into()],
                     },
@@ -325,7 +324,7 @@ async fn execute(cli: Cli, log_layer: &xcss_log::FoundationStructuredLayer) -> a
                 .with_schema_identity(schema::current_identity()?)
                 .register_health_check(
                     "database",
-                    xcss_server_runtime::health_check(move || {
+                    xcss::server_runtime::health_check(move || {
                         let pool = health_pool.clone();
                         async move {
                             sqlx::query_scalar::<_, i64>("SELECT 1")
@@ -345,14 +344,14 @@ async fn execute(cli: Cli, log_layer: &xcss_log::FoundationStructuredLayer) -> a
                     media,
                 };
                 let app = router(state, web)?;
-                let signals = xcss_server_runtime::ProcessSignals::install()?;
-                let listeners = xcss_server_runtime::BoundListeners::bind([bind])?;
+                let signals = xcss::server_runtime::ProcessSignals::install()?;
+                let listeners = xcss::server_runtime::BoundListeners::bind([bind])?;
                 tracing::info!(event = "common.runtime.started");
-                let mut transport = xcss_server_runtime::HttpServer::new(listeners, signals);
+                let mut transport = xcss::server_runtime::HttpServer::new(listeners, signals);
                 transport.participant = Some(participant);
                 tracing::info!(%bind, "XOCS listening");
                 if let Err(error) = runtime.serve(transport, app).await {
-                    if matches!(error, xcss_server_runtime::Error::ShutdownIncomplete(_)) {
+                    if matches!(error, xcss::server_runtime::Error::ShutdownIncomplete(_)) {
                         // An incomplete commit drain must retain the state owner and
                         // its locks until the operating system ends the process.
                         eprintln!("{error}");
@@ -386,10 +385,10 @@ async fn execute(cli: Cli, log_layer: &xcss_log::FoundationStructuredLayer) -> a
             let loaded = config::load(cli.config.as_deref(), cli.data_dir.as_deref(), &overrides)?;
             let database = loaded.value.database_path()?;
             let media = loaded.value.media_path()?;
-            xcss_state_file::PrivateStateDirectory::open(loaded.value.state_directory()?)?;
-            xcss_state_file::PrivateStateDirectory::open(media)?;
+            xcss::state_file::PrivateStateDirectory::open(loaded.value.state_directory()?)?;
+            xcss::state_file::PrivateStateDirectory::open(media)?;
             validate_existing_database(&database).await?;
-            xcss_server_cli::validate_runtime_log_directory(&loaded.value.state_directory()?)
+            xcss::server_cli::validate_runtime_log_directory(&loaded.value.state_directory()?)
                 .map_err(CliFailure)?;
             let mut state_paths = vec![loaded.value.state_directory()?, loaded.value.media_path()?];
             if let Some(config) = &cli.config {
@@ -407,10 +406,10 @@ async fn execute(cli: Cli, log_layer: &xcss_log::FoundationStructuredLayer) -> a
         } => {
             let settings =
                 config::load(cli.config.as_deref(), cli.data_dir.as_deref(), &overrides)?.value;
-            let report = xcss_server_cli::query_status(settings.bind, PRODUCT_ID)
+            let report = xcss::server_cli::query_status(settings.bind, PRODUCT_ID)
                 .await
                 .map_err(CliFailure)?;
-            xcss_server_cli::print_report(&report, output_json)?;
+            xcss::server_cli::print_report(&report, output_json)?;
             if !report.ready {
                 std::process::exit(1);
             }

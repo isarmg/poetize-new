@@ -1,4 +1,4 @@
-/* Product layout uses the same Foundation surfaces and controls as the other Servers. */
+/* Product layout uses the same xcss surfaces and controls as the other Servers. */
 .xocs-admin-app { display: contents; }
 .xocs-admin-app .xocs-site-link {
   display: inline-flex; align-items: center; justify-content: center;

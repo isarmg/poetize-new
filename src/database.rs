@@ -10,13 +10,13 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
-use xcss_admin_core::AdministratorService;
-use xcss_admin_sqlite::SqliteAdministratorStore;
+use xcss::admin_core::AdministratorService;
+use xcss::admin_sqlite::SqliteAdministratorStore;
 
 // Articles permit 2,000,000 bytes of content. Leave room for the rest of the
 // encoded row while bounding each native SQLite value and statement.
-const CONNECTION_LIMITS: xcss_sqlite::ConnectionLimits =
-    xcss_sqlite::ConnectionLimits::new(4 * 1024 * 1024)
+const CONNECTION_LIMITS: xcss::sqlite::ConnectionLimits =
+    xcss::sqlite::ConnectionLimits::new(4 * 1024 * 1024)
         .with_max_sql_bytes(256 * 1024)
         .with_max_vm_operations(100_000);
 
@@ -59,7 +59,7 @@ pub(crate) async fn open_database_with_limit(
             bail!("database must be a regular private 0600 file");
         }
     }
-    let directory = xcss_state_file::PrivateStateDirectory::open(parent)?;
+    let directory = xcss::state_file::PrivateStateDirectory::open(parent)?;
     let descriptor =
         directory.open_existing(path.file_name().context("database name is required")?)?;
     descriptor.verify_identity()?;
@@ -78,7 +78,7 @@ pub(crate) async fn open_database_with_limit(
         .max_connections(max_connections)
         .after_connect(|connection, _| {
             Box::pin(async move {
-                xcss_sqlite::apply_connection_limits(connection, CONNECTION_LIMITS)
+                xcss::sqlite::apply_connection_limits(connection, CONNECTION_LIMITS)
                     .await
                     .map(|_| ())
                     .map_err(|error| sqlx::Error::Configuration(Box::new(error)))
@@ -110,7 +110,7 @@ pub(crate) async fn initialize_new_database(
     password: &str,
 ) -> anyhow::Result<()> {
     let root = database.parent().context("database parent is required")?;
-    let directory = xcss_fs_safety::PrivateDirectory::open_existing(root)?;
+    let directory = xcss::fs_safety::PrivateDirectory::open_existing(root)?;
     let temporary = tempfile::Builder::new()
         .prefix(".xocs-init-")
         .suffix(".sqlite")
@@ -140,10 +140,10 @@ pub(crate) async fn initialize_new_database(
         .keep()
         .context("retain completed initialization staging file")?;
     let source =
-        xcss_fs_safety::RelativePath::new(staging.file_name().context("staging filename")?)?;
+        xcss::fs_safety::RelativePath::new(staging.file_name().context("staging filename")?)?;
     let destination =
-        xcss_fs_safety::RelativePath::new(database.file_name().context("database filename")?)?;
-    xcss_fs_safety::NoClobberPublish::publish(&directory, &source, &destination)
+        xcss::fs_safety::RelativePath::new(database.file_name().context("database filename")?)?;
+    xcss::fs_safety::NoClobberPublish::publish(&directory, &source, &destination)
         .context("publish initialized database without replacing an existing file; completed staging is retained if publication fails")?;
     file.sync_all()?;
     Ok(())
@@ -214,12 +214,12 @@ pub(crate) async fn validate_database(pool: &SqlitePool) -> anyhow::Result<()> {
 
 pub(crate) async fn validate_existing_database(path: &PathBuf) -> anyhow::Result<()> {
     let snapshot =
-        xcss_sqlite::open_validation_snapshot_with_connection_limits(path, CONNECTION_LIMITS)
+        xcss::sqlite::open_validation_snapshot_with_connection_limits(path, CONNECTION_LIMITS)
             .await?;
     let result = async {
         validate_database(snapshot.pool()).await?;
         let store = SqliteAdministratorStore::new(snapshot.pool().clone());
-        use xcss_admin_core::AdministratorStore as _;
+        use xcss::admin_core::AdministratorStore as _;
         anyhow::ensure!(
             store.administrator_count().await? > 0,
             "explicit initialization is required"

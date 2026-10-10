@@ -1,8 +1,8 @@
 import { publicErrorMessage } from './api';
-import { t } from '@xcss/admin-ui/i18n';
+import { t } from '@xcss/web/admin-ui/i18n';
 import {useEffect,useState,type FormEvent} from 'react';
-import {useAdminApplication} from '@xcss/admin-shell';
-import {Button,EmptyState,ErrorState,FormField,LoadingState,PageHeader,Select,Table,TextField} from '@xcss/admin-ui';
+import {useAdminApplication} from '@xcss/web/admin-shell';
+import {Button,EmptyState,ErrorState,FormField,LoadingState,PageHeader,Select,Table,TextField} from '@xcss/web/admin-ui';
 import type {Category,Page,SiteInfo} from './api';
 import {ImageLightbox,safeImageUrl} from './MediaPreview';
 import {adminGroups} from './AdminLayout';

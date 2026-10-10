@@ -1,4 +1,4 @@
-import { t } from '@xcss/admin-ui/i18n';
+import { t } from '@xcss/web/admin-ui/i18n';
 import { safeImageUrl } from './MediaPreview';
 
 export type PhotoItem = { id: number; title: string | null; classify: string | null; cover: string | null; create_time: string | null };

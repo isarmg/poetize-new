@@ -9,7 +9,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::net::SocketAddr;
-use xcss_server_cli::{ContractPath as Path, ContractQuery as Query};
+use xcss::server_cli::{ContractPath as Path, ContractQuery as Query};
 
 #[derive(Serialize, sqlx::FromRow)]
 pub(super) struct ArticleSummary {
@@ -321,7 +321,7 @@ pub(super) async fn unlock_article(
         })?;
     let allowed = stored
         .as_deref()
-        .is_none_or(|hash| xcss_admin_auth::verify_password(&input.password, hash));
+        .is_none_or(|hash| xcss::admin_auth::verify_password(&input.password, hash));
     if !allowed {
         return Err(AppError(StatusCode::FORBIDDEN, "访问密码错误"));
     }
@@ -370,7 +370,7 @@ fn validate_article(input: &ArticleInput, has_existing_password: bool) -> Result
         return Err(invalid("公开文章不可设置访问密码"));
     }
     if let Some(password) = &input.password {
-        xcss_admin_auth::validate_password(password)
+        xcss::admin_auth::validate_password(password)
             .map_err(|_| invalid("文章密码至少需要 12 字节"))?;
     }
     Ok(())
@@ -384,7 +384,7 @@ pub(super) async fn create_article(
     let password = input
         .password
         .as_deref()
-        .map(xcss_admin_auth::hash_password)
+        .map(xcss::admin_auth::hash_password)
         .transpose()
         .map_err(|_| invalid("文章密码无效"))?;
     let author = crate::site_author_id(&state.pool).await?;
@@ -414,7 +414,7 @@ pub(super) async fn update_article(
     let password = input
         .password
         .as_deref()
-        .map(xcss_admin_auth::hash_password)
+        .map(xcss::admin_auth::hash_password)
         .transpose()
         .map_err(|_| invalid("文章密码无效"))?;
     let result = sqlx::query("UPDATE article SET sort_id=?,label_id=?,article_cover=?,article_title=?,article_content=?,video_url=?,view_status=?,recommend_status=?,comment_status=?,password=CASE WHEN ?=1 THEN NULL ELSE COALESCE(?,password) END,tips=?,update_time=CURRENT_TIMESTAMP WHERE id=? AND deleted=0")

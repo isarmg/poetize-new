@@ -1,4 +1,4 @@
-import { t } from '@xcss/admin-ui/i18n';
+import { t } from '@xcss/web/admin-ui/i18n';
 import { useEffect, useState } from 'react';
 import { publicErrorMessage, request } from './api';
 

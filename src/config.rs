@@ -5,7 +5,7 @@ use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
 };
-use xcss_config::{EnvMapping, EnvValueKind, Loaded, Override};
+use xcss::config::{EnvMapping, EnvValueKind, Loaded, Override};
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -52,7 +52,7 @@ pub fn load(
     data_dir: Option<&Path>,
     args: &Overrides,
 ) -> anyhow::Result<Loaded<Settings>> {
-    let bytes = config.map(xcss_config::read_private_file).transpose()?;
+    let bytes = config.map(xcss::config::read_private_file).transpose()?;
     let mappings = [
         EnvMapping {
             variable: "XOCS_DATA_DIR",
@@ -95,7 +95,7 @@ pub fn load(
             Err(_) => anyhow::bail!("{} must be valid Unicode", mapping.variable),
         }
     }
-    let environment = xcss_config::read_environment(&mappings, |name| values.get(name).cloned())?;
+    let environment = xcss::config::read_environment(&mappings, |name| values.get(name).cloned())?;
     let mut cli = Vec::new();
     for (name, path) in [
         ("data_dir", data_dir),
@@ -116,14 +116,14 @@ pub fn load(
     if let Some(value) = args.development_http {
         cli.push(Override::new("/development_http", value));
     }
-    let settings = xcss_config::resolve_validated(
+    let settings = xcss::config::resolve_validated(
         &Settings::default(),
         bytes.as_deref(),
         &environment,
         &cli,
         |value, source| {
             value.validate().map_err(|_| {
-                xcss_config::ConfigError::new(xcss_config::Reason::InvalidValue, "/", source)
+                xcss::config::ConfigError::new(xcss::config::Reason::InvalidValue, "/", source)
             })
         },
     )?;
@@ -131,10 +131,10 @@ pub fn load(
     if let (Some(config), Ok(media)) = (config, settings.value.media_path())
         && config.starts_with(media)
     {
-        return Err(xcss_config::ConfigError::new(
-            xcss_config::Reason::InvalidValue,
+        return Err(xcss::config::ConfigError::new(
+            xcss::config::Reason::InvalidValue,
             "/media",
-            xcss_config::ConfigSource::File,
+            xcss::config::ConfigSource::File,
         )
         .into());
     }
@@ -214,11 +214,11 @@ impl Settings {
     }
 }
 
-pub fn runtime_lock(settings: &Settings) -> anyhow::Result<xcss_state_file::InstanceLock> {
-    let state = xcss_state_file::PrivateStateDirectory::open(settings.state_directory()?)?;
-    xcss_server_cli::runtime_allowed(state.path()).map_err(crate::CliFailure)?;
+pub fn runtime_lock(settings: &Settings) -> anyhow::Result<xcss::state_file::InstanceLock> {
+    let state = xcss::state_file::PrivateStateDirectory::open(settings.state_directory()?)?;
+    xcss::server_cli::runtime_allowed(state.path()).map_err(crate::CliFailure)?;
     let lock = state.try_instance_lock()?;
-    xcss_server_cli::runtime_allowed(state.path()).map_err(crate::CliFailure)?;
+    xcss::server_cli::runtime_allowed(state.path()).map_err(crate::CliFailure)?;
     state.verify_identity()?;
     Ok(lock)
 }

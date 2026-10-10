@@ -13,9 +13,9 @@ use sqlx::SqlitePool;
 use std::net::SocketAddr;
 use std::{os::unix::fs::PermissionsExt, sync::Arc};
 use tower::ServiceExt;
-use xcss_admin_auth::AdministratorOriginMode;
-use xcss_admin_core::AdministratorService;
-use xcss_admin_sqlite::SqliteAdministratorStore;
+use xcss::admin_auth::AdministratorOriginMode;
+use xcss::admin_core::AdministratorService;
+use xcss::admin_sqlite::SqliteAdministratorStore;
 
 async fn setup() -> (tempfile::TempDir, Router, SqlitePool) {
     let dir = tempfile::tempdir().unwrap();
@@ -30,7 +30,7 @@ async fn setup() -> (tempfile::TempDir, Router, SqlitePool) {
         pool.clone(),
     )));
     let state = AppState {
-        scope: xcss_server_runtime::WorkScope::new(),
+        scope: xcss::server_runtime::WorkScope::new(),
         pool: pool.clone(),
         admin,
         origin: AdministratorOriginMode::LoopbackDevelopmentHttp,
@@ -252,7 +252,7 @@ fn with_peer(mut request: Request<Body>) -> Request<Body> {
 #[tokio::test]
 async fn public_visibility_and_password_are_enforced() {
     let (_dir, app, pool) = setup().await;
-    let hash = xcss_admin_auth::hash_password("ProtectedPassphrase123").unwrap();
+    let hash = xcss::admin_auth::hash_password("ProtectedPassphrase123").unwrap();
     sqlx::query("INSERT INTO article(id,user_id,sort_id,label_id,article_title,article_content,view_status,password) VALUES(2,1,1,1,'Protected','private body',0,?)")
         .bind(hash).execute(&pool).await.unwrap();
     let list = app
@@ -590,7 +590,7 @@ async fn search_ranks_titles_and_hides_protected_body_matches() {
     let (_dir, app, pool) = setup().await;
     sqlx::query("INSERT INTO article(id,user_id,sort_id,label_id,article_title,article_content) VALUES(1,1,1,1,'春日记','普通正文'),(2,1,1,1,'另一篇','正文提到春日记')")
         .execute(&pool).await.unwrap();
-    let hash = xcss_admin_auth::hash_password("ProtectedPassphrase123").unwrap();
+    let hash = xcss::admin_auth::hash_password("ProtectedPassphrase123").unwrap();
     sqlx::query("INSERT INTO article(id,user_id,sort_id,label_id,article_title,article_content,view_status,password) VALUES(3,1,1,1,'加密文章','春日记藏在正文',0,?)")
         .bind(hash).execute(&pool).await.unwrap();
     let search = app

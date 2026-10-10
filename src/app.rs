@@ -17,13 +17,13 @@ use tower_http::{
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
-use xcss_admin_auth::AdministratorOriginMode;
-use xcss_admin_core::AdministratorService;
-use xcss_admin_sqlite::SqliteAdministratorStore;
+use xcss::admin_auth::AdministratorOriginMode;
+use xcss::admin_core::AdministratorService;
+use xcss::admin_sqlite::SqliteAdministratorStore;
 
 #[derive(Clone)]
 pub(crate) struct AppState {
-    pub(crate) scope: xcss_server_runtime::WorkScope,
+    pub(crate) scope: xcss::server_runtime::WorkScope,
     pub(crate) pool: SqlitePool,
     pub(crate) admin: Arc<AdministratorService<SqliteAdministratorStore>>,
     pub(crate) origin: AdministratorOriginMode,
@@ -33,7 +33,7 @@ pub(crate) struct AppState {
 #[derive(Debug)]
 pub(crate) struct AppError(pub(crate) StatusCode, pub(crate) &'static str);
 impl AppError {
-    pub(crate) fn envelope(&self) -> xcss_error::ErrorEnvelope {
+    pub(crate) fn envelope(&self) -> xcss::error::ErrorEnvelope {
         let code = match self.0 {
             StatusCode::BAD_REQUEST => "bad_request",
             StatusCode::UNAUTHORIZED => "unauthorized",
@@ -45,8 +45,8 @@ impl AppError {
             StatusCode::SERVICE_UNAVAILABLE => "service_unavailable",
             _ => "internal_error",
         };
-        xcss_error::ErrorEnvelope::with_code(
-            xcss_error::ErrorCode::new(code).expect("static error code"),
+        xcss::error::ErrorEnvelope::with_code(
+            xcss::error::ErrorCode::new(code).expect("static error code"),
             self.1,
         )
     }
@@ -119,7 +119,7 @@ pub(crate) fn router(state: AppState, web: Option<PathBuf>) -> anyhow::Result<Ro
         .merge(public_routes)
         .nest_service("/media", ServeDir::new(&state.media))
         .merge(admin_routes)
-        .merge(xcss_admin_axum::administrator_router(
+        .merge(xcss::admin_axum::administrator_router(
             PRODUCT_ID,
             state.origin,
             Arc::clone(&state.admin),
@@ -131,8 +131,8 @@ pub(crate) fn router(state: AppState, web: Option<PathBuf>) -> anyhow::Result<Ro
         .method_not_allowed_fallback(|| async {
             (
                 StatusCode::METHOD_NOT_ALLOWED,
-                Json(xcss_error::ErrorEnvelope::with_code(
-                    xcss_error::ErrorCode::new("method_not_allowed").expect("static code"),
+                Json(xcss::error::ErrorEnvelope::with_code(
+                    xcss::error::ErrorCode::new("method_not_allowed").expect("static code"),
                     "The request method is not supported by this route.",
                 )),
             )
@@ -142,7 +142,7 @@ pub(crate) fn router(state: AppState, web: Option<PathBuf>) -> anyhow::Result<Ro
                 .make_span_with(|request: &Request| {
                     let request_id = request
                         .extensions()
-                        .get::<xcss_contracts::RequestId>()
+                        .get::<xcss::contracts::RequestId>()
                         .map(|value| value.as_str())
                         .unwrap_or("");
                     tracing::info_span!("http.request", request_id)
@@ -165,15 +165,15 @@ pub(crate) fn router(state: AppState, web: Option<PathBuf>) -> anyhow::Result<Ro
         .layer(from_fn_with_state(state.scope.clone(), admit_request))
         .layer(from_fn_with_state(
             PRODUCT_ID.to_string(),
-            xcss_server_cli::service_identity_middleware,
+            xcss::server_cli::service_identity_middleware,
         ))
         .layer(axum::middleware::from_fn(
-            xcss_server_cli::request_context_middleware,
+            xcss::server_cli::request_context_middleware,
         )))
 }
 
 async fn admit_request(
-    State(scope): State<xcss_server_runtime::WorkScope>,
+    State(scope): State<xcss::server_runtime::WorkScope>,
     request: Request,
     next: Next,
 ) -> Response {
@@ -228,7 +228,7 @@ async fn readiness(State(pool): State<SqlitePool>) -> Response {
 }
 
 async fn admin_gate(State(state): State<AppState>, request: Request, next: Next) -> Response {
-    match xcss_admin_axum::authenticate_request(
+    match xcss::admin_axum::authenticate_request(
         &state.admin,
         request.headers(),
         request.uri(),

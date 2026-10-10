@@ -86,7 +86,7 @@
 @media(prefers-reduced-motion:reduce){.original-public .hero-down,.original-public .public-footer,.original-public .aside-profile,.original-public .cursor{animation:none}}
 
 /* Original proportions and artwork details. Maple comes from the local maple-font
-   checkout through the project's @xcss/web-fonts build (same source commit). */
+   checkout through the project's @xcss/web/web-fonts build (same source commit). */
 .original-public,
 .original-public button,
 .original-public input,

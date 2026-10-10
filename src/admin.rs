@@ -1,6 +1,6 @@
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use serde::{Deserialize, Serialize};
-use xcss_server_cli::{ContractPath as Path, ContractQuery as Query};
+use xcss::server_cli::{ContractPath as Path, ContractQuery as Query};
 
 use crate::{ApiResult, AppError, AppState, absent, db_error, invalid};
 

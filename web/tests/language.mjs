@@ -6,7 +6,7 @@ import { authored, mockApi, schemaPrefixes, summary } from './browser-fixtures.m
 
 const routes = [
   ['/', 'Believe in the power of stories'], ['/search', 'Search articles'], ['/sort', 'Article categories'],
-  ['/weiYan', 'Posts'], ['/jotting', 'XOCS'], ['/menory', 'XOCS'], ['/favorite', 'Toolbox'],
+  ['/weiYan', 'Posts'], ['/jotting', 'xocs'], ['/menory', 'xocs'], ['/favorite', 'Toolbox'],
   ['/friend', 'Friends'], ['/music', 'Music player'], ['/travel', 'Photo album'], ['/love', 'Our journey together'],
   ['/message', 'Message wall'], ['/about', 'About'], ['/letter', 'To Ming'],
   ['/article/1', summary.article_title],

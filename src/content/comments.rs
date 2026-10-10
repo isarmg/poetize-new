@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
-use xcss_server_cli::{ContractPath as Path, ContractQuery as Query};
+use xcss::server_cli::{ContractPath as Path, ContractQuery as Query};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

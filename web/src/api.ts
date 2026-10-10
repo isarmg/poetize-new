@@ -1,6 +1,6 @@
-import { t } from '@xcss/admin-ui/i18n';
+import { t } from '@xcss/web/admin-ui/i18n';
 export type ArticleSummary = {id: number; article_title: string; article_cover: string | null; sort_id: number; label_id: number; sort_name: string | null; label_name: string | null; view_count: number; like_count: number; comment_count: number; recommend_status: number; view_status: number; create_time: string | null; excerpt: string | null; search_snippet: string | null};
-import {isErrorEnvelope, type ErrorEnvelope} from '@xcss/contracts';
+import {isErrorEnvelope, type ErrorEnvelope} from '@xcss/web/contracts';
 
 export class ApiError extends Error {
   readonly status: number;

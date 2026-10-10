@@ -1,5 +1,5 @@
 use sqlx::SqlitePool;
-use xcss_schema_identity::SchemaIdentity;
+use xcss::schema_identity::SchemaIdentity;
 
 pub fn current_identity() -> anyhow::Result<SchemaIdentity> {
     Ok(SchemaIdentity::new(
@@ -23,13 +23,13 @@ pub async fn initialize_identity(pool: &SqlitePool) -> anyhow::Result<()> {
 /// The release version is deliberately excluded from the data identity.
 pub async fn validate(pool: &SqlitePool) -> anyhow::Result<()> {
     let mut transaction = pool.begin().await?;
-    let result = xcss_sqlite::require_current_schema(&mut transaction, &current_identity()?).await;
+    let result = xcss::sqlite::require_current_schema(&mut transaction, &current_identity()?).await;
     let rolled_back = transaction.rollback().await;
     match result {
         Ok(_) => {}
         // Keep the CLI's existing public contract rejection for exact schema
         // identity failures instead of hiding it behind the SQLx adapter.
-        Err(xcss_sqlite::Error::SchemaIdentity(error)) => return Err(error.into()),
+        Err(xcss::sqlite::Error::SchemaIdentity(error)) => return Err(error.into()),
         Err(error) => return Err(error.into()),
     }
     rolled_back?;

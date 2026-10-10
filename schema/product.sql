@@ -1,4 +1,4 @@
--- Product-owned Xocs schema. Foundation metadata and administrator DDL are composed by build.rs.
+-- Product-owned Xocs schema. xcss metadata and administrator DDL are composed by build.rs.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE user (

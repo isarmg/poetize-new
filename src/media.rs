@@ -78,11 +78,11 @@ async fn save_image(
         .commit_tasks
         .try_spawn(async move {
             tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
-                let directory = xcss_fs_safety::PrivateDirectory::open_existing(directory)?;
-                let name = xcss_fs_safety::EntryName::new(filename)?;
-                match xcss_fs_safety::AtomicFile::create(&directory, &name, &content) {
+                let directory = xcss::fs_safety::PrivateDirectory::open_existing(directory)?;
+                let name = xcss::fs_safety::EntryName::new(filename)?;
+                match xcss::fs_safety::AtomicFile::create(&directory, &name, &content) {
                     Ok(()) => Ok(()),
-                    Err(xcss_fs_safety::Error::DestinationExists(_)) => {
+                    Err(xcss::fs_safety::Error::DestinationExists(_)) => {
                         let existing = directory.read_bounded(&name, limit)?;
                         anyhow::ensure!(
                             existing.as_slice() == content.as_ref(),

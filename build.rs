@@ -16,34 +16,27 @@ fn main() {
             let (requested, actual) = line
                 .trim_end_matches('"')
                 .split_once('#')
-                .expect("complete Foundation source identity");
-            assert_eq!(
-                requested, actual,
-                "Foundation source must match its exact pin"
-            );
+                .expect("complete xcss source identity");
+            assert_eq!(requested, actual, "xcss source must match its exact pin");
             assert!(
                 actual.len() == 40
                     && actual
                         .bytes()
                         .all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f')),
-                "Foundation source must be a full lowercase commit"
+                "xcss source must be a full lowercase commit"
             );
             actual.to_owned()
         })
         .collect::<BTreeSet<_>>();
-    assert_eq!(
-        revisions.len(),
-        1,
-        "one coherent Foundation input is required"
-    );
+    assert_eq!(revisions.len(), 1, "one coherent xcss input is required");
     println!(
-        "cargo:rustc-env=XCSS_FOUNDATION_REVISION={}",
-        revisions.into_iter().next().expect("one Foundation source")
+        "cargo:rustc-env=XCSS_REVISION={}",
+        revisions.into_iter().next().expect("one xcss source")
     );
     let web = env::var_os("XCSS_WEB_DIST")
         .map(PathBuf::from)
         .unwrap_or_else(|| root.join("web/dist"));
-    xcss_web_assets::build::generate(web).expect("build embedded Xocs Web assets");
+    xcss::web_assets::build::generate(web).expect("build embedded Xocs Web assets");
     let target = env::var("TARGET").expect("Cargo build target");
     let revision = env::var("XOCS_SOURCE_REVISION").unwrap_or_else(|_| "unbound".into());
     assert!(
@@ -59,8 +52,8 @@ fn main() {
     println!("cargo:rerun-if-changed=schema/product.sql");
     let schema = format!(
         "{};\n{}\n{}",
-        xcss_schema_identity::PRODUCT_METADATA_DDL,
-        xcss_admin_sqlite::ADMIN_PERSISTENT_DDL,
+        xcss::schema_identity::PRODUCT_METADATA_DDL,
+        xcss::admin_sqlite::ADMIN_PERSISTENT_DDL,
         include_str!("schema/product.sql")
     );
     std::fs::write(
@@ -71,6 +64,6 @@ fn main() {
     .expect("write current composed schema");
     // This is trusted DDL composed from owned source constants, never input.
     let fingerprint =
-        xcss_sqlite::fingerprint_trusted_ddl(&[&schema]).expect("fingerprint current Xocs DDL");
+        xcss::sqlite::fingerprint_trusted_ddl(&[&schema]).expect("fingerprint current Xocs DDL");
     println!("cargo:rustc-env=XOCS_SCHEMA_SHA256={fingerprint}");
 }

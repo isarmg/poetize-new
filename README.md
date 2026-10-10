@@ -16,7 +16,7 @@
 
 ## 构建
 
-后台的[账号设置](docs/account-settings.md)作为普通后台菜单页面，使用正式发布的 Foundation 账号组件提供用户名、当前密码、新密码、确认新密码和保存按钮。
+后台的[账号设置](docs/account-settings.md)作为普通后台菜单页面，使用正式发布的 xcss 账号组件提供用户名、当前密码、新密码、确认新密码和保存按钮。
 
 需要精确的 Node.js 26.7.0、Rust 1.99.0。从项目根目录运行：
 
@@ -27,7 +27,7 @@ npm run build
 cd ..
 export XOCS_SOURCE_REVISION="$(git rev-parse HEAD)"
 web/node_modules/.bin/xcss-build-server \
-  --config foundation-web-build.json --mode release --no-install \
+  --config xcss-web-build.json --mode release --no-install \
   --rust-only --source-revision "$XOCS_SOURCE_REVISION"
 ```
 
@@ -56,7 +56,7 @@ target/x86_64-unknown-linux-gnu/release/xocs --data-dir /var/lib/xocs run \
 
 当前数据库必须携带 `xocs-db-v1` 身份且实际 SQL 结构与编译指纹一致。运行只接受当前格式，旧数据明确拒绝且不改写。初始化先完成独立暂存数据库，再以不覆盖已有文件的方式发布。
 
-Rust 公共依赖固定官方 Foundation Server 仓库的版本 `=1.0.0` 与完整 revision `d58b9ef0822984ee0d29fb8b8139cfd2787374fb`；八个 Web 包固定同版 `v1.0.0` 官方发行 URL 和真实归档的 lockfile integrity，不读取相邻工作区。Xocs 软件版本为 `1.0.0`，数据库格式身份仍为 `xocs-db-v1`，软件版本与数据格式版本分别管理。
+Rust 公共依赖固定官方 xcss 仓库的版本 `=1.0.0` 与完整 revision `9fb5b3f8f20762cb93050bc52ea81a36ac0dc914`；一个 @xcss/web 包固定同版 `v1.0.0` 官方发行 URL 和真实归档的 lockfile integrity，不读取相邻工作区。Xocs 软件版本为 `1.0.0`，数据库格式身份仍为 `xocs-db-v1`，软件版本与数据格式版本分别管理。
 
 根目录是唯一 Cargo workspace 与 lock。共同 builder 验证 Linux AMD64 GNU target、真实源码 revision 和实际二进制资源清单，报告真实输出路径；默认正式输出为 `target/x86_64-unknown-linux-gnu/release/xocs`。独立缓存通过 `CARGO_TARGET_DIR` 选择，打包脚本以 `XOCS_RELEASE_CARGO_TARGET_DIR` 指向同一绝对缓存根。正式包要求干净源码、annotated `v1.0.0` 精确指向 HEAD 和匹配该 HEAD 的二进制身份，不允许 unbound 程序打包。
 
@@ -84,3 +84,5 @@ bash scripts/smoke.sh
 版本改动见 [1.0.0 说明](docs/releases/1.0.0.md)，发行物见 [GitHub Releases](https://github.com/isarmg/xocs/releases)。发布流程验证固定依赖、Rust、双浏览器界面及正式二进制的业务烟测后，生成 Linux x86_64 归档和 SHA-256 校验文件。本次重建仅保留 `v1.0.0` 标签与发行物。
 
 当前发布版本：**1.0.0**。参见 [1.0.0 发布说明](docs/releases/1.0.0.md)和[项目命名](docs/naming.md)。
+
+公共支撑的职责、单体依赖、平台边界与验证方法见[公共支撑说明](docs/common-support.md)。

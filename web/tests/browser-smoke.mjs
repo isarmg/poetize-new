@@ -29,7 +29,7 @@ try {
     await route.fulfill({ status: 200, contentType, body: await readFile(target) });
   });
   const homeHeading = process.env.XOCS_SMOKE_URL ? '相信记录的力量' : '测试站点';
-  for (const [route, heading] of [['/', homeHeading], ['/search', '搜索文章'], ['/sort', '文章分类'], ['/weiYan', '微言'], ['/jotting', 'XOCS'], ['/menory', 'XOCS'], ['/favorite', '百宝箱'], ['/friend', '友人帐'], ['/music', '音乐盒'], ['/travel', '时光相册'], ['/love', '这是我们一起走过的'], ['/message', '弹幕']]) {
+  for (const [route, heading] of [['/', homeHeading], ['/search', '搜索文章'], ['/sort', '文章分类'], ['/weiYan', '微言'], ['/jotting', 'xocs'], ['/menory', 'xocs'], ['/favorite', '百宝箱'], ['/friend', '友人帐'], ['/music', '音乐盒'], ['/travel', '时光相册'], ['/love', '这是我们一起走过的'], ['/message', '弹幕']]) {
     await page.goto(`${base}${route}`);
     await page.getByRole('heading', { name: heading }).first().waitFor();
     console.log(`${route}: rendered`);
@@ -99,7 +99,7 @@ try {
     console.log('/article/3: unlocked');
   }
   await page.goto(`${base}/admin`);
-  await page.locator('body').getByText('XOCS').first().waitFor();
+  await page.locator('body').getByText('xocs', { exact: true }).first().waitFor();
   if (process.env.XOCS_SMOKE_URL) {
     await page.locator('input[name="username"]').fill('admin');
     await page.locator('input[name="password"]').fill('TemporaryPassphrase123');

@@ -1,8 +1,8 @@
-import { foundationFontLicenses } from "./font-licenses.mjs";
+import { xcssFontLicenses } from "./font-licenses.mjs";
 import {defineConfig} from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  plugins: [react(), foundationFontLicenses()],
+  plugins: [react(), xcssFontLicenses()],
   server: {port: 5173, proxy: {'/api': 'http://127.0.0.1:8081'}},
 });

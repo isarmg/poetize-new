@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { HeaderActions, HeaderNavigation } from '@xcss/admin-shell';
-import { Button } from '@xcss/admin-ui';
-import { t } from '@xcss/admin-ui/i18n';
+import { HeaderActions, HeaderNavigation } from '@xcss/web/admin-shell';
+import { Button } from '@xcss/web/admin-ui';
+import { t } from '@xcss/web/admin-ui/i18n';
 
 export const adminGroups = [
   { id: 'overview', label: t('总览', 'Overview'), title: t('总览', 'Overview'), pages: [

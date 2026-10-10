@@ -17,7 +17,7 @@ pub(super) struct SiteInfo {
 }
 pub(super) async fn site_info(State(state): State<AppState>) -> ApiResult<SiteInfo> {
     Ok(Json(sqlx::query_as::<_,SiteInfo>("SELECT web_name,web_title,notices,footer,background_image,avatar,random_avatar,random_name,random_cover,waifu_json FROM web_info ORDER BY id LIMIT 1")
-        .fetch_optional(&state.pool).await.map_err(db_error)?.unwrap_or(SiteInfo {web_name:Some("XOCS".into()),web_title:Some("相信记录的力量".into()),notices:None,footer:None,background_image:None,avatar:None,random_avatar:None,random_name:None,random_cover:None,waifu_json:None})))
+        .fetch_optional(&state.pool).await.map_err(db_error)?.unwrap_or(SiteInfo {web_name:Some("xocs".into()),web_title:Some("相信记录的力量".into()),notices:None,footer:None,background_image:None,avatar:None,random_avatar:None,random_name:None,random_cover:None,waifu_json:None})))
 }
 
 #[derive(Serialize, sqlx::FromRow)]

@@ -1,11 +1,11 @@
 use sqlx::SqlitePool;
 use std::sync::Mutex;
-use xcss_server_runtime::{LifecycleParticipant, WorkScope};
+use xcss::server_runtime::{LifecycleParticipant, WorkScope};
 
 pub struct Lifecycle {
     pub scope: WorkScope,
     pub pool: SqlitePool,
-    pub lock: Mutex<Option<std::sync::Arc<xcss_state_file::InstanceLock>>>,
+    pub lock: Mutex<Option<std::sync::Arc<xcss::state_file::InstanceLock>>>,
 }
 
 #[async_trait::async_trait]

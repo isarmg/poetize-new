@@ -1,16 +1,16 @@
 import { publicErrorMessage } from './api';
-import { t } from '@xcss/admin-ui/i18n';
+import { t } from '@xcss/web/admin-ui/i18n';
 import {StrictMode, useEffect, useMemo, useRef, useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {createXcssAdminApplication, InstanceHeaderActions, useAdminApplication, AccountPage} from '@xcss/admin-shell';
-import {Button, EmptyState, ErrorState, FormField, LoadingState, PageHeader, Select, Table, TextField} from '@xcss/admin-ui';
-import '@xcss/design-tokens/tokens.css';
-import '@xcss/design-tokens/tokens.dark.css';
-import '@xcss/admin-ui/styles.css';
-import '@xcss/design-tokens/reset.css';
-import '@xcss/design-tokens/accessibility.css';
-import '@xcss/web-fonts/fonts.css';
-import {startAfterFonts} from '@xcss/web-fonts';
+import {createXcssAdminApplication, InstanceHeaderActions, useAdminApplication, AccountPage} from '@xcss/web/admin-shell';
+import {Button, EmptyState, ErrorState, FormField, LoadingState, PageHeader, Select, Table, TextField} from '@xcss/web/admin-ui';
+import '@xcss/web/design-tokens/tokens.css';
+import '@xcss/web/design-tokens/tokens.dark.css';
+import '@xcss/web/admin-ui/styles.css';
+import '@xcss/web/design-tokens/reset.css';
+import '@xcss/web/design-tokens/accessibility.css';
+import '@xcss/web/web-fonts/fonts.css';
+import {startAfterFonts} from '@xcss/web/web-fonts';
 import './style.css';
 import './public-original.css';
 import './public-layout.css';
@@ -83,7 +83,7 @@ function AdminPages() {
 }
 
 const AdminApp = createXcssAdminApplication({
-  product: {name: 'XOCS'},
+  product: {name: 'xocs'},
   navigation: [],
   loginLandingHref: languageHref('/admin#articles'),
   routes: <div style={{display:'contents'}} onInvalidCapture={localizeValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation}><AdminPages /></div>,
@@ -224,7 +224,7 @@ function pushNotice(value:string|null|undefined){const lines=noticeList(value);c
 
 function HomeAside({site,categories,recommendedArticles,labels,messages,articleTotal,viewTotal}:{site:SiteInfo|null;categories:Category[];recommendedArticles:ArticleSummary[];labels:PublicLabel[];messages:{message:string}[];articleTotal:number;viewTotal:number}){
   return <aside className="home-aside" aria-label={t("网站侧栏", "Site sidebar")}>
-    <section className="aside-profile"><div className="aside-avatar"><img src={safeMediaUrl(site?.avatar||null)||'/legacy/avatar.jpg'} alt={t("站长头像", "Site owner avatar")}/></div><h2>{site?.web_name||'XOCS'}</h2><div className="aside-stats"><span>{t("📖 文章", "📖 Articles")}<strong>{articleTotal}</strong></span><span>{t("📒 分类", "📒 Categories")}<strong>{categories.length}</strong></span><span>{t("🔥 访问量", "🔥 Views")}<strong>{viewTotal}</strong></span></div></section>
+    <section className="aside-profile"><div className="aside-avatar"><img src={safeMediaUrl(site?.avatar||null)||'/legacy/avatar.jpg'} alt={t("站长头像", "Site owner avatar")}/></div><h2>{site?.web_name||'xocs'}</h2><div className="aside-stats"><span>{t("📖 文章", "📖 Articles")}<strong>{articleTotal}</strong></span><span>{t("📒 分类", "📒 Categories")}<strong>{categories.length}</strong></span><span>{t("🔥 访问量", "🔥 Views")}<strong>{viewTotal}</strong></span></div></section>
     <form className="aside-search" action="/search" method="get"><label htmlFor="home-search">{t("搜索", "Search")}</label><div><input id="home-search" name="q" maxLength={200} placeholder={t("搜索文章", "Search articles")}/><button type="submit" aria-label={t("搜索", "Search")}>⌕</button></div></form>
     {recommendedArticles.length>0&&<section className="aside-featured"><h2>{t("✧ 推荐位", "✧ Featured")}</h2>{recommendedArticles.slice(0,2).map(item=><a key={item.id} href={`/article/${item.id}`}>{safeMediaUrl(item.article_cover)&&<img src={safeMediaUrl(item.article_cover)||''} alt="" loading="lazy"/>}<strong>{item.article_title}</strong></a>)}</section>}
     {recommendedArticles.length>0&&<section className="aside-recommended"><h2>{t("🔥 推荐文章", "🔥 Recommended articles")}</h2>{recommendedArticles.map(item=><a href={`/article/${item.id}`} key={item.id}>{safeMediaUrl(item.article_cover)?<img src={safeMediaUrl(item.article_cover)||''} alt="" loading="lazy"/>:<span className="aside-recommend-cover">{t("诗意生活", "A poetic life")}</span>}<span>{item.article_title}<small>◷ {item.create_time||t("最近", "Recently")}</small></span></a>)}</section>}

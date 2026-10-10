@@ -1,4 +1,4 @@
-import { getLocale, languageLabel, switchLanguage, t, validationMessage } from '@xcss/admin-ui/i18n';
+import { getLocale, languageLabel, switchLanguage, t, validationMessage } from '@xcss/web/admin-ui/i18n';
 import type { FormEvent, MouseEvent } from 'react';
 
 export function LanguageControl() {

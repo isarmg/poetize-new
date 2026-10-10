@@ -2,7 +2,7 @@ use super::PageResult;
 use crate::{ApiResult, AppState, db_error, invalid};
 use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
-use xcss_server_cli::ContractQuery as Query;
+use xcss::server_cli::ContractQuery as Query;
 
 #[derive(Serialize, sqlx::FromRow)]
 pub(super) struct Link {

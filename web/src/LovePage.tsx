@@ -1,4 +1,4 @@
-import { t } from '@xcss/admin-ui/i18n';
+import { t } from '@xcss/web/admin-ui/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { publicErrorMessage, request, type Page } from './api';
 import { ImageLightbox, safeImageUrl } from './MediaPreview';

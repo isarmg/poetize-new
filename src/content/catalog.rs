@@ -1,7 +1,7 @@
 use crate::{ApiResult, AppError, AppState, absent, db_error, invalid};
 use axum::{Json, extract::State, http::StatusCode};
 use serde::{Deserialize, Serialize};
-use xcss_server_cli::{ContractPath as Path, ContractQuery as Query};
+use xcss::server_cli::{ContractPath as Path, ContractQuery as Query};
 
 #[derive(Serialize, sqlx::FromRow)]
 pub(super) struct Category {

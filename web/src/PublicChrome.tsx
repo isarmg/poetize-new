@@ -1,4 +1,4 @@
-import { t } from '@xcss/admin-ui/i18n';
+import { t } from '@xcss/web/admin-ui/i18n';
 import {useEffect, useMemo, useState, type ReactNode} from 'react';
 import {request, type Category, type SiteInfo} from './api';
 import {LanguageControl, clearValidation, localizeValidation} from './language';
@@ -92,17 +92,17 @@ export function PublicChrome({site, title, home = false, cover, articleMeta, pla
   const fallbackCover=useMemo(()=>randomCover(info?.random_cover),[info?.random_cover]);
   return <div onInvalidCapture={localizeValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation} className={`public-site original-public page-${window.location.pathname.slice(1).replace(/[^a-zA-Z0-9_-]/g,'') || 'home'}${dark ? ' theme-dark' : ''}`}>
     <header className={`public-header${scrolled || menuOpen || plainHeader ? ' entered' : ''}${plainHeader ? ' plain-header' : ''}${headerHidden && !menuOpen ? ' header-hidden' : ''}`}>
-      <a className="brand" href="/" aria-label={t("{0} 首页", "{0} home", [info?.web_name || 'XOCS'])}><img src="/live/xocs-logo.png" alt={info?.web_name || 'XOCS'}/></a>
+      <a className="brand" href="/" aria-label={t("{0} 首页", "{0} home", [info?.web_name || 'xocs'])}><img src="/live/xocs-logo.png" alt={info?.web_name || 'xocs'}/></a>
       <nav className={menuOpen ? 'open' : ''} aria-label={t("主导航", "Main navigation")}><span className="public-mobile-title">{t("欢迎光临", "Welcome")}</span>{links.map(([icon, label, href]) => href==='/sort'?<details key={href} className="public-sort-menu"><summary><span aria-hidden="true">{icon}</span> {label}</summary><div><a href="/sort">{t("全部文章", "All articles")}</a>{categories.map(category=><a href={`/sort?sort_id=${category.id}`} key={category.id}>{category.sort_name}<small>{category.article_count}</small></a>)}</div></details>:href==='/favorite'?<details key={href} className="public-sort-menu"><summary><span aria-hidden="true">{icon}</span> {label}</summary><div><a href="/music">{t("🎵 音乐", "🎵 Music")}</a><a href="/favorite?tab=favorites">{t("📁 收藏夹", "📁 Favorites")}</a><a href="/friend">{t("🔗 友链", "🔗 Friend links")}</a></div></details>:href==='/'?<HomeMenu key={href} headerHidden={headerHidden} menuOpen={menuOpen}/>:<a key={href} href={href} aria-current={window.location.pathname === href ? 'page' : undefined}><span aria-hidden="true">{icon}</span> {label}</a>)}</nav>
       {displayControls}
       <button className="public-menu-toggle" type="button" aria-label={menuOpen ? t("关闭导航", "Close navigation") : t("打开导航", "Open navigation")} aria-expanded={menuOpen} onClick={() => setMenuOpen(value => !value)}>{menuOpen ? '✕' : '☰'}</button>
     </header>
     {!plainHeader && <section className={`hero${home ? ' home-hero' : articleMeta ? ' article-hero' : ' compact-hero'}`} style={{backgroundImage: `linear-gradient(#0b2c3e3d,#0b2c3e52),url("${safeCover(cover || info?.background_image || fallbackCover)}")`}}>
-      <div className={articleMeta ? 'hero-article-info' : 'hero-center'}><h1>{home ? info?.web_title || t("相信记录的力量", "Believe in the power of stories") : title || 'XOCS'}</h1>{home && <p className="hero-poem">{t("相信记录的力量！", "Believe in the power of stories!")}<span className="cursor">|</span></p>}{subtitle && <p className="hero-subtitle">{subtitle}</p>}{articleMeta && <p className="hero-article-meta">👤 {articleMeta.author||t("站长", "Site owner")}　·　📅 {articleMeta.date || t("最近", "Recently")}　·　🔥 {articleMeta.views}{t(" 热度 · 💬 ", " views · 💬 ")}{articleMeta.comments}{t(" 评论 · ❤️ ", " comments · ❤️ ")}{articleMeta.likes}{t(" 点赞", " likes")}</p>}</div>
+      <div className={articleMeta ? 'hero-article-info' : 'hero-center'}><h1>{home ? info?.web_title || t("相信记录的力量", "Believe in the power of stories") : title || 'xocs'}</h1>{home && <p className="hero-poem">{t("相信记录的力量！", "Believe in the power of stories!")}<span className="cursor">|</span></p>}{subtitle && <p className="hero-subtitle">{subtitle}</p>}{articleMeta && <p className="hero-article-meta">👤 {articleMeta.author||t("站长", "Site owner")}　·　📅 {articleMeta.date || t("最近", "Recently")}　·　🔥 {articleMeta.views}{t(" 热度 · 💬 ", " views · 💬 ")}{articleMeta.comments}{t(" 评论 · ❤️ ", " comments · ❤️ ")}{articleMeta.likes}{t(" 点赞", " likes")}</p>}</div>
       {home && <><a className="hero-down" href="#public-content" aria-label={t("浏览文章", "Browse articles")}>⌄</a><div className="hero-wave hero-wave-back" aria-hidden="true"/><div className="hero-wave hero-wave-front" aria-hidden="true"/></>}
     </section>}
     <main id="public-content" className={`public-main${home ? '' : ' extra-main'}`}>{children}</main>
-    <footer className="public-footer"><span>{info?.footer || 'XOCS'}</span><small>{t("本网站由 XOCS 强力支持", "Powered by XOCS")}</small></footer>
+    <footer className="public-footer"><span>{info?.footer || 'xocs'}</span><small>{t("本网站由 xocs 强力支持", "Powered by xocs")}</small></footer>
     {scrolled && <div className="public-tools"><button className="back-top" type="button" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})} aria-label={t('返回顶部', 'Back to top')}><span aria-hidden="true">↑</span></button></div>}
   </div>;
 }

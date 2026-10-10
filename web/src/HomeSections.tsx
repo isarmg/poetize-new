@@ -1,9 +1,9 @@
 import { DisplayError } from './api';
 import { publicErrorMessage } from './api';
-import { t } from '@xcss/admin-ui/i18n';
+import { t } from '@xcss/web/admin-ui/i18n';
 import {useEffect,useState} from 'react';
-import {useAdminApplication} from '@xcss/admin-shell';
-import {Button,ErrorState,FormField,LoadingState,PageHeader,Select,Table,TextField} from '@xcss/admin-ui';
+import {useAdminApplication} from '@xcss/web/admin-shell';
+import {Button,ErrorState,FormField,LoadingState,PageHeader,Select,Table,TextField} from '@xcss/web/admin-ui';
 import {request,type Category} from './api';
 
 type Kind='latest'|'recommended'|'category';

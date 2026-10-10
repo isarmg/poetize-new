@@ -25,14 +25,14 @@ jobs:
           check-latest: false
       - name: Install exact Rust toolchain
         run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt,clippy
-      - name: Verify pinned Foundation contracts
+      - name: Verify pinned xcss contracts
         run: |
           foundation_input="$RUNNER_TEMP/xocs-foundation-input"
           git init --quiet "$foundation_input"
           git -C "$foundation_input" remote add origin https://github.com/isarmg/xcss.git
-          git -C "$foundation_input" fetch --depth=1 origin d58b9ef0822984ee0d29fb8b8139cfd2787374fb
+          git -C "$foundation_input" fetch --depth=1 origin 020b40b1185a604ced7a01230781a3eadffe64c2
           git -C "$foundation_input" checkout --quiet --detach FETCH_HEAD
-          test "$(git -C "$foundation_input" rev-parse HEAD)" = d58b9ef0822984ee0d29fb8b8139cfd2787374fb
+          test "$(git -C "$foundation_input" rev-parse HEAD)" = 020b40b1185a604ced7a01230781a3eadffe64c2
           python3 "$foundation_input/scripts/xcss-conformance.py" verify-manifest --product-root "$GITHUB_WORKSPACE"
           python3 "$foundation_input/scripts/xcss-conformance.py" verify-source --product-root "$GITHUB_WORKSPACE"
 
